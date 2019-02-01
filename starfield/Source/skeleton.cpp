@@ -27,16 +27,6 @@ void Interpolate( vec3 a, vec3 b, vector<vec3>& result);
 
 int main( int argc, char* argv[] )
 {
-
-  vector<vec3> result( 4 ); //Create a vector
-  vec3 a(1, 4, 9.2);
-  vec3 b(4, 1, 9.8);
-  Interpolate( a, b, result ); //Fill it with interpolated values
-  for (unsigned int i = 0; i < result.size(); ++i) {
-    cout << "( " << result[i].x << ", " << result[i].y << ", " << result[i].z << " ) ";
-  }
-  printf("\n");
-
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
   t = SDL_GetTicks();	/*Set start value for timer.*/
 
@@ -59,10 +49,23 @@ void Draw(screen* screen)
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  vec3 colour(1.0,0.0,0.0);
-  for(int i=0; i<screen->width; i++) {
-    for (int j=0; j<screen->height; j++) {
-      PutPixelSDL(screen, i, j, colour);
+  vec3 topLeft(1,0,0); //red
+  vec3 topRight(0,0,1); //blue
+  vec3 bottomRight(0,1,0); //green
+  vec3 bottomLeft(1,1,0); //yellow
+
+  vector<vec3> leftSide( SCREEN_HEIGHT );
+  vector<vec3> rightSide( SCREEN_HEIGHT );
+
+  vector<vec3> row( SCREEN_WIDTH );
+
+  Interpolate( topLeft, bottomLeft, leftSide );
+  Interpolate( topRight, bottomRight, rightSide );
+
+  for(int j=0; j<screen->height; j++) {
+    Interpolate( leftSide[j], rightSide[j], row );
+    for (int i=0; i<screen->width; i++) {
+      PutPixelSDL(screen, i, j, row[i]);
     }
   }
 }
