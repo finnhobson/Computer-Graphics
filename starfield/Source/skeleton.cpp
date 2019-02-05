@@ -21,19 +21,29 @@ int t;
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
-void Update();
-void Draw(screen* screen);
+void Update(vector<vec3>& stars);
+void Draw(screen* screen, vector<vec3>& stars);
 void Interpolate( vec3 a, vec3 b, vector<vec3>& result);
 
 int main( int argc, char* argv[] )
 {
+  vector<vec3> stars( 1000 );
+
+  for ( unsigned int i = 0; i < stars.size(); i++ )
+  {
+    stars[i].x = float(rand()) / float(RAND_MAX) * 2 - 1;
+    stars[i].y = float(rand()) / float(RAND_MAX) * 2 - 1;
+    stars[i].z = float(rand()) / float(RAND_MAX);
+    //cout << "( " << stars[i].x << ", " << stars[i].y << ", " << stars[i].z << " ) \n";
+  }
+
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
   t = SDL_GetTicks();	/*Set start value for timer.*/
 
   while( NoQuitMessageSDL() )
     {
-      Draw(screen);
-      Update();
+      Update(stars);
+      Draw(screen, stars);
       SDL_Renderframe(screen);
     }
 
@@ -44,10 +54,22 @@ int main( int argc, char* argv[] )
 }
 
 /*Place your drawing here*/
-void Draw(screen* screen)
+void Draw(screen* screen, vector<vec3>& stars)
 {
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
+
+  vec3 white(1,1,1);
+
+  for ( unsigned int i = 0; i < stars.size(); ++i )
+  {
+    float uStar = SCREEN_HEIGHT/2 * stars[i].x/stars[i].z + SCREEN_WIDTH/2;
+    float vStar = SCREEN_HEIGHT/2 * stars[i].y/stars[i].z + SCREEN_HEIGHT/2;
+    vec3 colour = 0.2f * white / (stars[i].z*stars[i].z);
+    PutPixelSDL(screen, uStar, vStar, colour);
+  }
+
+  /* Bilinear Interpolation of Colours
 
   vec3 topLeft(1,0,0); //red
   vec3 topRight(0,0,1); //blue
@@ -67,20 +89,29 @@ void Draw(screen* screen)
     for (int i=0; i<screen->width; i++) {
       PutPixelSDL(screen, i, j, row[i]);
     }
-  }
+  }*/
 }
 
 /*Place updates of parameters here*/
-void Update()
+void Update(vector<vec3>& stars)
 {
-  /* Compute frame time
+  // Compute frame time
+  //static int t = SDL_GetTicks();
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
-  t = t2;*/
-  /*Good idea to remove this*/
-  //std::cout << "Render time: " << dt << " ms." << std::endl;
+  t = t2;
+
+  float velocity = 0.0003f;
+
   /* Update variables*/
+  for ( unsigned int i = 0; i < stars.size(); ++i )
+  {
+    stars[i].z = stars[i].z - velocity * dt;
+    if (stars[i].z <= 0) stars[i].z += 1;
+    if (stars[i].z > 1) stars[i].z -= 1;
+  }
 }
+
 
 void Interpolate( vec3 a, vec3 b, vector<vec3>& result) {
   float diffX = (b.x - a.x)/(result.size()-1);
