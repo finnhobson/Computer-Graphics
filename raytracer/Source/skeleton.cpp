@@ -12,25 +12,41 @@ using glm::vec4;
 using glm::mat4;
 
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 256
+#define SCREEN_WIDTH 300
+#define SCREEN_HEIGHT 300
 #define FULLSCREEN_MODE false
+
+struct Intersection
+{
+  vec4 position;
+  float distance;
+  int triangleIndex;
+};
+
+
+/* ----------------------------------------------------------------------------*/
+/* GLOBAL VARIABLES                                                            */
+
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
 void Update();
-void Draw(screen* screen);
+void Draw(screen* screen, const vector<Triangle>& triangles);
+bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection);
 
 int main( int argc, char* argv[] )
 {
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
+  vector<Triangle> triangles;
+  LoadTestModel(triangles);
+
   while( NoQuitMessageSDL() )
     {
       Update();
-      Draw(screen);
+      Draw(screen, triangles);
       SDL_Renderframe(screen);
     }
 
@@ -41,18 +57,25 @@ int main( int argc, char* argv[] )
 }
 
 /*Place your drawing here*/
-void Draw(screen* screen)
+void Draw(screen* screen, const vector<Triangle>& triangles)
 {
+  float focalLength = SCREEN_HEIGHT;
+  //float cameraDist = -1.0 - focalLength;
+  vec4 cameraPos( 0.0, 0.0, -3.0, 1.0 );
+  Intersection intersection;
+
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  vec3 colour(1.0,0.0,0.0);
-  for(int i=0; i<1000; i++)
-    {
-      uint32_t x = rand() % screen->width;
-      uint32_t y = rand() % screen->height;
-      PutPixelSDL(screen, x, y, colour);
+  for (int x = 1; x < SCREEN_WIDTH; x++) {
+    for (int y = 1; y < SCREEN_HEIGHT; y++) {
+      vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
+      ClosestIntersection(cameraPos, dir, triangles, intersection);
+      int index = intersection.triangleIndex;
+      vec3 color = triangles[index].color;
+      PutPixelSDL(screen, x, y, color);
     }
+  }
 }
 
 /*Place updates of parameters here*/
@@ -66,4 +89,47 @@ void Update()
   /*Good idea to remove this*/
   std::cout << "Render time: " << dt << " ms." << std::endl;
   /* Update variables*/
+}
+
+
+bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection)
+{
+  bool intersects = false;
+  float m = std::numeric_limits<float>::max();
+  closestIntersection.distance = m;
+
+  for (unsigned int i = 0; i < triangles.size(); i++)
+  {
+    vec4 v0 = triangles[i].v0;
+    vec4 v1 = triangles[i].v1;
+    vec4 v2 = triangles[i].v2;
+
+    vec3 e1 = vec3(v1.x-v0.x, v1.y-v0.y, v1.z-v0.z);
+    vec3 e2 = vec3(v2.x-v0.x, v2.y-v0.y, v2.z-v0.z);
+    vec3 b = vec3(start.x-v0.x, start.y-v0.y, start.z-v0.z);
+
+    vec3 d = vec3(dir.x, dir.y, dir.z);
+
+    mat3 A( -d, e1, e2 );
+    vec3 x = glm::inverse( A ) * b;
+
+    float t = x.x;
+    float u = x.y;
+    float v = x.z;
+
+    if (u > 0 && v > 0 && (u+v) < 1 && t >= 0 && t < closestIntersection.distance)
+    {
+      closestIntersection.position.x = v0.x + u*e1.x + v*e2.x;
+      closestIntersection.position.y = v0.y + u*e1.y + v*e2.y;
+      closestIntersection.position.z = v0.z + u*e1.z + v*e2.z;
+      closestIntersection.position.w = v0.w;
+
+      closestIntersection.distance = t;
+      closestIntersection.triangleIndex = i;
+
+      intersects = true;
+    }
+  }
+
+  return intersects;
 }
