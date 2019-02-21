@@ -26,14 +26,18 @@ struct Intersection
 
 /* ----------------------------------------------------------------------------*/
 /* GLOBAL VARIABLES                                                            */
-
+vec4 cameraPos( 0.0, 0.0, -3.0, 1.0 );
+mat4 yRotation = mat4(1.0f);
+float yAngle;
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
-bool Update(vec4& cameraPos);
-void Draw(screen* screen, const vector<Triangle>& triangles, vec4& cameraPos);
+bool Update();
+void Draw(screen* screen, const vector<Triangle>& triangles);
 bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection);
+void UpdateRotation();
+
 
 int main( int argc, char* argv[] )
 {
@@ -43,11 +47,9 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel(triangles);
 
-  vec4 cameraPos( 0.0, 0.0, -3.0, 1.0 );
-
-  while( Update(cameraPos) )
+  while( Update() )
     {
-      Draw(screen, triangles, cameraPos);
+      Draw(screen, triangles);
       SDL_Renderframe(screen);
     }
 
@@ -58,7 +60,7 @@ int main( int argc, char* argv[] )
 }
 
 /*Place your drawing here*/
-void Draw(screen* screen, const vector<Triangle>& triangles, vec4& cameraPos)
+void Draw(screen* screen, const vector<Triangle>& triangles)
 {
   float focalLength = SCREEN_HEIGHT;
   //float cameraDist = -1.0 - focalLength;
@@ -79,7 +81,7 @@ void Draw(screen* screen, const vector<Triangle>& triangles, vec4& cameraPos)
 }
 
 /*Place updates of parameters here*/
-bool Update(vec4& cameraPos)
+bool Update()
 {
   /* Compute frame time */
   static int t = SDL_GetTicks();
@@ -116,12 +118,14 @@ bool Update(vec4& cameraPos)
         case SDLK_LEFT:
           /* Move camera left */
           std::cout << "Left." << std::endl;
-          cameraPos.x -= 0.1;
+          yAngle -= 0.1;
+          UpdateRotation();
           break;
         case SDLK_RIGHT:
           /* Move camera right */
           std::cout << "Right." << std::endl;
-          cameraPos.x += 0.1;
+          yAngle += 0.1;
+          UpdateRotation();
           break;
         case SDLK_ESCAPE:
           /* Move camera quit */
@@ -144,6 +148,10 @@ bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangle
     vec4 v0 = triangles[i].v0;
     vec4 v1 = triangles[i].v1;
     vec4 v2 = triangles[i].v2;
+
+    v0 = yRotation * v0;
+    v1 = yRotation * v1;
+    v2 = yRotation * v2;
 
     vec3 e1 = vec3(v1.x-v0.x, v1.y-v0.y, v1.z-v0.z);
     vec3 e2 = vec3(v2.x-v0.x, v2.y-v0.y, v2.z-v0.z);
@@ -173,4 +181,12 @@ bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangle
   }
 
   return intersects;
+}
+
+void UpdateRotation()
+{
+  yRotation[0][0] = cos(yAngle);
+  yRotation[0][2] = sin(yAngle);
+  yRotation[2][0] = -sin(yAngle);
+  yRotation[2][2] = cos(yAngle);
 }
