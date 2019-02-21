@@ -12,8 +12,8 @@ using glm::vec4;
 using glm::mat4;
 
 
-#define SCREEN_WIDTH 300
-#define SCREEN_HEIGHT 300
+#define SCREEN_WIDTH 200
+#define SCREEN_HEIGHT 200
 #define FULLSCREEN_MODE false
 
 struct Intersection
@@ -31,8 +31,8 @@ struct Intersection
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
 
-void Update();
-void Draw(screen* screen, const vector<Triangle>& triangles);
+bool Update(vec4& cameraPos);
+void Draw(screen* screen, const vector<Triangle>& triangles, vec4& cameraPos);
 bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection);
 
 int main( int argc, char* argv[] )
@@ -43,10 +43,12 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel(triangles);
 
+  vec4 cameraPos( 0.0, 0.0, -3.0, 1.0 );
+
   while( NoQuitMessageSDL() )
     {
-      Update();
-      Draw(screen, triangles);
+      Update(cameraPos);
+      Draw(screen, triangles, cameraPos);
       SDL_Renderframe(screen);
     }
 
@@ -57,18 +59,17 @@ int main( int argc, char* argv[] )
 }
 
 /*Place your drawing here*/
-void Draw(screen* screen, const vector<Triangle>& triangles)
+void Draw(screen* screen, const vector<Triangle>& triangles, vec4& cameraPos)
 {
   float focalLength = SCREEN_HEIGHT;
   //float cameraDist = -1.0 - focalLength;
-  vec4 cameraPos( 0.0, 0.0, -3.0, 1.0 );
   Intersection intersection;
 
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  for (int x = 1; x < SCREEN_WIDTH; x++) {
-    for (int y = 1; y < SCREEN_HEIGHT; y++) {
+  for (int x = 0; x < SCREEN_WIDTH; x++) {
+    for (int y = 0; y < SCREEN_HEIGHT; y++) {
       vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
       ClosestIntersection(cameraPos, dir, triangles, intersection);
       int index = intersection.triangleIndex;
@@ -79,16 +80,57 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
 }
 
 /*Place updates of parameters here*/
-void Update()
+bool Update(vec4& cameraPos)
 {
-  static int t = SDL_GetTicks();
   /* Compute frame time */
+  static int t = SDL_GetTicks();
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
   t = t2;
+
   /*Good idea to remove this*/
   std::cout << "Render time: " << dt << " ms." << std::endl;
+
   /* Update variables*/
+  SDL_Event e;
+  while(SDL_PollEvent(&e))
+    {
+      if (e.type == SDL_QUIT)
+        {
+          return false;
+        }
+    else if (e.type == SDL_KEYDOWN)
+      {
+        int key_code = e.key.keysym.sym;
+        switch(key_code)
+          {
+            case SDLK_UP:
+              /* Move camera forward */
+              std::cout << "Forward." << std::endl;
+              cameraPos.z += 0.1;
+              break;
+            case SDLK_DOWN:
+              /* Move camera backwards */
+              std::cout << "Back." << std::endl;
+              cameraPos.z -= 0.1;
+              break;
+            case SDLK_LEFT:
+              /* Move camera left */
+              std::cout << "Left." << std::endl;
+              cameraPos.x -= 0.1;
+              break;
+            case SDLK_RIGHT:
+              /* Move camera right */
+              std::cout << "Right." << std::endl;
+              cameraPos.x += 0.1;
+              break;
+            case SDLK_ESCAPE:
+              /* Move camera quit */
+              return false;
+            }
+        }
+    }
+    return true;
 }
 
 
