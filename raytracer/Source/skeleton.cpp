@@ -45,9 +45,8 @@ int main( int argc, char* argv[] )
 
   vec4 cameraPos( 0.0, 0.0, -3.0, 1.0 );
 
-  while( NoQuitMessageSDL() )
+  while( Update(cameraPos) )
     {
-      Update(cameraPos);
       Draw(screen, triangles, cameraPos);
       SDL_Renderframe(screen);
     }
@@ -94,43 +93,43 @@ bool Update(vec4& cameraPos)
   /* Update variables*/
   SDL_Event e;
   while(SDL_PollEvent(&e))
+  {
+    if (e.type == SDL_QUIT)
     {
-      if (e.type == SDL_QUIT)
-        {
+      return false;
+    }
+    else if (e.type == SDL_KEYDOWN)
+    {
+      int key_code = e.key.keysym.sym;
+      switch(key_code)
+      {
+        case SDLK_UP:
+          /* Move camera forward */
+          std::cout << "Forward." << std::endl;
+          cameraPos.z += 0.1;
+          break;
+        case SDLK_DOWN:
+          /* Move camera backwards */
+          std::cout << "Back." << std::endl;
+          cameraPos.z -= 0.1;
+          break;
+        case SDLK_LEFT:
+          /* Move camera left */
+          std::cout << "Left." << std::endl;
+          cameraPos.x -= 0.1;
+          break;
+        case SDLK_RIGHT:
+          /* Move camera right */
+          std::cout << "Right." << std::endl;
+          cameraPos.x += 0.1;
+          break;
+        case SDLK_ESCAPE:
+          /* Move camera quit */
           return false;
         }
-    else if (e.type == SDL_KEYDOWN)
-      {
-        int key_code = e.key.keysym.sym;
-        switch(key_code)
-          {
-            case SDLK_UP:
-              /* Move camera forward */
-              std::cout << "Forward." << std::endl;
-              cameraPos.z += 0.1;
-              break;
-            case SDLK_DOWN:
-              /* Move camera backwards */
-              std::cout << "Back." << std::endl;
-              cameraPos.z -= 0.1;
-              break;
-            case SDLK_LEFT:
-              /* Move camera left */
-              std::cout << "Left." << std::endl;
-              cameraPos.x -= 0.1;
-              break;
-            case SDLK_RIGHT:
-              /* Move camera right */
-              std::cout << "Right." << std::endl;
-              cameraPos.x += 0.1;
-              break;
-            case SDLK_ESCAPE:
-              /* Move camera quit */
-              return false;
-            }
-        }
+      }
     }
-    return true;
+  return true;
 }
 
 
