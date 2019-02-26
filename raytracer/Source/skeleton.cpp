@@ -34,7 +34,11 @@ mat4 yRotation = mat4(1.0f);
 float yAngle;
 
 vec4 lightPos( 0, -0.5, -0.7, 1.0 );
-vec3 lightColor = 9.f * vec3( 1, 0.5, 0 );
+float intensity = 12.f;
+float red = 1.0f;
+float green = 1.0f;
+float blue = 1.0f;
+vec3 lightColor = intensity * vec3( red, green, blue );
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -43,6 +47,7 @@ void Draw(screen* screen, const vector<Triangle>& triangles);
 bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangles, Intersection& closestIntersection);
 void UpdateRotation();
 vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles );
+void UpdateLightColour();
 
 
 int main( int argc, char* argv[] )
@@ -134,6 +139,69 @@ bool Update()
           yAngle += 0.1;
           UpdateRotation();
           break;
+        case SDLK_w:
+          // Move light forward
+          lightPos.z += 0.1;
+          break;
+        case SDLK_s:
+          // Move light forward
+          lightPos.z -= 0.1;
+          break;
+        case SDLK_a:
+          // Move light left
+          lightPos.x -= 0.1;
+          break;
+        case SDLK_d:
+          // Move light right
+          lightPos.x += 0.1;
+          break;
+        case SDLK_q:
+          // Move light up
+          lightPos.y -= 0.1;
+          break;
+        case SDLK_e:
+          // Move light down
+          lightPos.y += 0.1;
+          break;
+        case SDLK_r:
+          // Increase light intensity
+          intensity += 0.2;
+          UpdateLightColour();
+          break;
+        case SDLK_f:
+          //Decrease light intensity
+          intensity -= 0.5;
+          UpdateLightColour();
+          break;
+        case SDLK_t:
+          // Increase light red value
+          if (red < 1) red += 0.05;
+          UpdateLightColour();
+          break;
+        case SDLK_g:
+          // Decrease light red value
+          if (red > 0) red -= 0.05;
+          UpdateLightColour();
+          break;
+        case SDLK_y:
+          // Increase light green value
+          if (green < 1) green += 0.05;
+          UpdateLightColour();
+          break;
+        case SDLK_h:
+          // Decreae light green value
+          if (green > 0) green -= 0.05;
+          UpdateLightColour();
+          break;
+        case SDLK_u:
+          // Increase light blue value
+          if (blue < 1) blue += 0.05;
+          UpdateLightColour();
+          break;
+        case SDLK_j:
+          if (blue > 0) blue -= 0.05;
+          UpdateLightColour();
+          break;
         case SDLK_ESCAPE:
           // Quit
           return false;
@@ -222,4 +290,10 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
   // Colour value
   vec3 D = lightColor * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
   return D;
+}
+
+
+void UpdateLightColour()
+{
+  lightColor = intensity * vec3(red, green, blue);
 }
