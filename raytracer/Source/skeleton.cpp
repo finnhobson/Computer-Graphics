@@ -165,12 +165,12 @@ bool Update()
           break;
         case SDLK_r:
           // Increase light intensity
-          intensity += 0.2;
+          intensity += 1.0;
           UpdateLightColour();
           break;
         case SDLK_f:
           //Decrease light intensity
-          intensity -= 0.5;
+          if (intensity > 0) intensity -= 1.0;
           UpdateLightColour();
           break;
         case SDLK_t:
@@ -263,6 +263,7 @@ bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangle
   return intersects;
 }
 
+
 // Updates rotation matrix R with new y rotation value
 void UpdateRotation()
 {
@@ -272,12 +273,14 @@ void UpdateRotation()
   yRotation[2][2] = cos(yAngle);
 }
 
+
 // Calcalutes pixel colour value based on relationship with light source
 vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
 {
   int index = i.triangleIndex;
   vec4 position = i.position;
   vec4 normal = triangles[index].normal;
+  vec3 color = triangles[index].color;
 
   // Vector from intersection point to light source
   vec4 lightDir = vec4(lightPos.x-position.x, lightPos.y-position.y, lightPos.z-position.z, position.w);
@@ -289,7 +292,8 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
 
   // Colour value
   vec3 D = lightColor * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
-  return D;
+  vec3 C = color * D;
+  return C;
 }
 
 
