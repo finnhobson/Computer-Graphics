@@ -39,6 +39,7 @@ float red = 1.0f;
 float green = 1.0f;
 float blue = 1.0f;
 vec3 lightColor = intensity * vec3( red, green, blue );
+vec3 indirectLight = 0.5f * vec3(red, green, blue);
 
 /* ----------------------------------------------------------------------------*/
 /* FUNCTIONS                                                                   */
@@ -86,11 +87,12 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
       if (ClosestIntersection(cameraPos, dir, triangles, intersection))
       {
         // SINGLE COLOURS
-        /*int index = intersection.triangleIndex;
-        vec3 color = triangles[index].color;*/
+        int index = intersection.triangleIndex;
+        vec3 trueColor = triangles[index].color;
 
         // DIRECT LIGHTING
-        vec3 color = DirectLight(intersection, triangles);
+        vec3 directLight = DirectLight(intersection, triangles);
+        vec3 color = trueColor * (directLight + indirectLight);
 
         PutPixelSDL(screen, x, y, color);
       }
@@ -280,7 +282,6 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
   int index = i.triangleIndex;
   vec4 position = i.position;
   vec4 normal = triangles[index].normal;
-  vec3 color = triangles[index].color;
 
   // Vector from intersection point to light source
   vec4 lightDir = vec4(lightPos.x-position.x, lightPos.y-position.y, lightPos.z-position.z, position.w);
@@ -290,14 +291,20 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
   //Distance from intersection point to light source
   float radius = glm::length(vec3(lightDir.x, lightDir.y, lightDir.z));
 
-  // Colour value
   vec3 D = lightColor * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
-  vec3 C = color * D;
-  return C;
+
+  Intersection shadowIntersection;
+  if (ClosestIntersection(lightPos, -unitLightDir, triangles, shadowIntersection)) {
+    if (shadowIntersection.distance < radius) {
+      D = vec3(0, 0, 0);
+    }
+  }
+  return D;
 }
 
 
 void UpdateLightColour()
 {
   lightColor = intensity * vec3(red, green, blue);
+  indirectLight = intensity/28.0f * vec3(red, green, blue); 
 }
