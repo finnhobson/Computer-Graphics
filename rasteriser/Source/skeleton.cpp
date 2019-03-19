@@ -39,13 +39,13 @@ mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
 
-/* ----------------------------------------------------------------------------*/
-/* FUNCTIONS                                                                   */
+/* ---------------------------------------------------------------------------- */
+/* FUNCTIONS                                                                    */
+/* ---------------------------------------------------------------------------- */
 
 bool Update();
 void Draw(screen* screen);
 void VertexShader( const vec4& v, ivec2& p );
-void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result );
 void UpdateRotation();
 void ComputePolygonRows( const vector<Pixel>& vertexPixels,
     vector<Pixel>& leftPixels,
@@ -63,44 +63,6 @@ int main( int argc, char* argv[] )
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
   LoadTestModel(triangles);
-
-  /*Pixel a;
-  a.x = 5;
-  a.y = 5;
-  a.zinv = 0.2f;
-  Pixel b;
-  b.x = 10;
-  b.y = 10;
-  b.zinv = 0.1f;
-  vector<Pixel> result(6);
-
-  result = InterpolateLine(a, b);
-
-  for (int i = 0; i < 6; i++) {
-    cout << result[i].x << ","
-         << result[i].y << ","
-         << result[i].zinv << "," << endl;
-  }*/
-
-  /*vector<Pixel> vertexPixels(3);
-  vertexPixels[0].x = 10;
-  vertexPixels[0].y = 5;
-  vertexPixels[1].x = 5;
-  vertexPixels[1].y = 10;
-  vertexPixels[2].x = 15;
-  vertexPixels[2].y = 15;
-  vector<Pixel> leftPixels;
-  vector<Pixel> rightPixels;
-  ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
-  for( int row=0; row<leftPixels.size(); ++row )
-  {
-    cout << "Start: ("
-        << leftPixels[row].x << ","
-        << leftPixels[row].y << "). "
-        << "End: ("
-        << rightPixels[row].x << ","
-        << rightPixels[row].y << "). " << endl;
-  }*/
 
   while ( Update())
     {
@@ -195,21 +157,8 @@ void VertexShader( const vec4& v, Pixel& projPos ) {
 
   projPos.x = (SCREEN_HEIGHT * bigX / bigZ) + (SCREEN_WIDTH/2);
   projPos.y = (SCREEN_HEIGHT * bigY / bigZ) + (SCREEN_HEIGHT/2);
-  projPos.zinv = (float)1 / (float)v.z;
+  projPos.zinv = (float)1 / (float)bigZ;
 
-}
-
-
-void Interpolate( ivec2 a, ivec2 b, vector<ivec2>& result )
-{
-  int N = result.size();
-  vec2 step = vec2(b-a) / float(max(N-1,1));
-  vec2 current( a );
-  for( int i=0; i<N; ++i )
-  {
-    result[i] = current;
-    current += step;
-  }
 }
 
 void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result )
@@ -221,7 +170,7 @@ void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result )
 
   vec3 step = (vecB - vecA) / float(max(N-1,1));
 
-  //printf("%lf\n", step.z);
+  // printf("%lf\n", step.z);
 
   vec3 current( vecA );
   for( int i=0; i<N; ++i )
@@ -309,12 +258,12 @@ void DrawRows( screen* screen, const vector<Pixel>& leftPixels,
     vector<Pixel> row(pixels);
     InterpolatePixel( leftPixels[i], rightPixels[i], row );
     for ( int j = 0; j < pixels; j++ ) {
-      //printf("%lf\n", row[j].zinv);
-      /*if (row[j].zinv > depthBuffer[row[j].y][row[j].x]) {
+      // printf("%lf\n", row[j].zinv);
+      if (row[j].zinv > depthBuffer[row[j].y][row[j].x]) {
         depthBuffer[row[j].y][row[j].x] = row[j].zinv;
         PutPixelSDL( screen, row[j].x, row[j].y, currentColor );
-      }*/
-      PutPixelSDL( screen, row[j].x, row[j].y, currentColor );
+      }
+      //PutPixelSDL( screen, row[j].x, row[j].y, currentColor );
     }
   }
 }
