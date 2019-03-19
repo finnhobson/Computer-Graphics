@@ -24,6 +24,14 @@ struct Pixel
   int x;
   int y;
   float zinv;
+  vec3 illumination;
+};
+
+struct Vertex
+{
+   vec4 position;
+   vec4 normal;
+   vec3 reflectance;
 };
 
 /* ----------------------------------------------------------------------------*/
@@ -38,6 +46,10 @@ vec4 cameraPos( 0, 0, -3.001, 1 );
 mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
+vec4 lightPos(0,-0.5,-0.7, 1);
+vec3 lightPower = 14.0f * vec3( 1, 1, 1 );
+vec3 indirectLight = 0.5f * vec3( 1, 1, 1 );
+
 
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
@@ -45,15 +57,17 @@ float yAngle = 0;
 
 bool Update();
 void Draw(screen* screen);
-void VertexShader( const vec4& v, ivec2& p );
+void VertexShader( const Vertex& v, ivec2& p );
 void UpdateRotation();
 void ComputePolygonRows( const vector<Pixel>& vertexPixels,
     vector<Pixel>& leftPixels,
     vector<Pixel>& rightPixels );
 void DrawRows( screen* screen, const vector<Pixel>& leftPixels,
     const vector<Pixel> rightPixels );
-void DrawPolygon( screen* screen, const vector<vec4>& vertices );
+void PixelShader(screen* screen, const Pixel& p );
+void DrawPolygon( screen* screen, const vector<Vertex>& vertices );
 void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result );
+vec3 DirectLight( const Vertex & v );
 vector<Pixel> InterpolateLine( Pixel a, Pixel b );
 
 
@@ -89,15 +103,21 @@ void Draw(screen* screen)
   for( uint32_t i=0; i<triangles.size(); ++i ){
     currentColor = triangles[i].color;
 
-    vector<vec4> vertices(3);
-    vertices[0] = triangles[i].v0;
-    vertices[1] = triangles[i].v1;
-    vertices[2] = triangles[i].v2;
+
+    vector<Vertex> vertices(3);
+    vertices[0].position = triangles[i].v0;
+    vertices[1].position = triangles[i].v1;
+    vertices[2].position = triangles[i].v2;
+
+    for(int j = 0; j < 3; j++) {
+      vertices[j].normal = triangles[i].normal;
+      vertices[j].reflectance = triangles[i].color;
+    }
 
     // Rotate points around the y-axis
-    vertices[0] = yRotation * vertices[0];
-    vertices[1] = yRotation * vertices[1];
-    vertices[2] = yRotation * vertices[2];
+    vertices[0].position = yRotation * vertices[0].position;
+    vertices[1].position = yRotation * vertices[1].position;
+    vertices[2].position = yRotation * vertices[2].position;
 
     DrawPolygon( screen, vertices );
   }
@@ -150,16 +170,40 @@ bool Update()
 }
 
 
-void VertexShader( const vec4& v, Pixel& projPos ) {
-  float bigX = v.x - cameraPos.x;
-  float bigY = v.y - cameraPos.y;
-  float bigZ = v.z - cameraPos.z;
+void VertexShader( const Vertex& v, Pixel& p ) {
+  float bigX = v.position.x - cameraPos.x;
+  float bigY = v.position.y - cameraPos.y;
+  float bigZ = v.position.z - cameraPos.z;
 
-  projPos.x = (SCREEN_HEIGHT * bigX / bigZ) + (SCREEN_WIDTH/2);
-  projPos.y = (SCREEN_HEIGHT * bigY / bigZ) + (SCREEN_HEIGHT/2);
-  projPos.zinv = (float)1 / (float)bigZ;
+  p.x = (SCREEN_HEIGHT * bigX / bigZ) + (SCREEN_WIDTH/2);
+  p.y = (SCREEN_HEIGHT * bigY / bigZ) + (SCREEN_HEIGHT/2);
+  p.zinv = 1.0f / bigZ;
 
+
+  vec3 directLight = DirectLight(v);
+  p.illumination = v.reflectance * (directLight + indirectLight);
+  //printf("%lf, %lf, %lf\n", p.illumination.x, p.illumination.y, p.illumination.z);
 }
+
+vec3 DirectLight( const Vertex & v )
+{
+  vec4 position = v.position;
+  vec4 normal = v.normal;
+
+  // Vector from intersection point to light source
+  vec4 lightDir = vec4(lightPos.x-position.x, lightPos.y-position.y, lightPos.z-position.z, position.w);
+  vec4 unitLightDir = glm::normalize(lightDir);
+
+  float projection = glm::dot(unitLightDir, normal);
+  //Distance from intersection point to light source
+  float radius = glm::length(vec3(lightDir.x, lightDir.y, lightDir.z));
+
+  vec3 D = lightPower * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
+  return D;
+}
+
+
+
 
 void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result )
 {
@@ -169,17 +213,21 @@ void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result )
   vector<vec3> vecResult( N );
 
   vec3 step = (vecB - vecA) / float(max(N-1,1));
+  vec3 lightStep = (b.illumination - a.illumination) / float(max(N-1,1));
 
   // printf("%lf\n", step.z);
 
   vec3 current( vecA );
+  vec3 currentLight( a.illumination );
   for( int i=0; i<N; ++i )
   {
     vecResult[i] = current;
     result[i].x = round(vecResult[i].x);
     result[i].y = round(vecResult[i].y);
     result[i].zinv = vecResult[i].z;
+    result[i].illumination = currentLight;
     current += step;
+    currentLight += lightStep;
   }
 }
 
@@ -240,10 +288,12 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels,
     if (edgePixels[i].x < leftPixels[row].x) {
       leftPixels[row].x = edgePixels[i].x;
       leftPixels[row].zinv = edgePixels[i].zinv;
+      leftPixels[row].illumination = edgePixels[i].illumination;
     }
     if (edgePixels[i].x > rightPixels[row].x) {
       rightPixels[row].x = edgePixels[i].x;
       rightPixels[row].zinv = edgePixels[i].zinv;
+      rightPixels[row].illumination = edgePixels[i].illumination;
     }
   }
 }
@@ -259,16 +309,23 @@ void DrawRows( screen* screen, const vector<Pixel>& leftPixels,
     InterpolatePixel( leftPixels[i], rightPixels[i], row );
     for ( int j = 0; j < pixels; j++ ) {
       // printf("%lf\n", row[j].zinv);
-      if (row[j].zinv > depthBuffer[row[j].y][row[j].x]) {
-        depthBuffer[row[j].y][row[j].x] = row[j].zinv;
-        PutPixelSDL( screen, row[j].x, row[j].y, currentColor );
+      PixelShader(screen, row[j]);
       }
-      //PutPixelSDL( screen, row[j].x, row[j].y, currentColor );
     }
   }
+
+void PixelShader(screen* screen, const Pixel& p )
+   {
+       int x = p.x;
+       int y = p.y;
+       if( p.zinv > depthBuffer[y][x] )
+       {
+           depthBuffer[y][x] = p.zinv;
+           PutPixelSDL( screen, x, y, p.illumination );
+       }
 }
 
-void DrawPolygon( screen* screen, const vector<vec4>& vertices )
+void DrawPolygon( screen* screen, const vector<Vertex>& vertices )
 {
     int V = vertices.size();
 
