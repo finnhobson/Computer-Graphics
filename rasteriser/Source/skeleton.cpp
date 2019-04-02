@@ -68,12 +68,12 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels,
 void DrawRows( screen* screen, const vector<Pixel>& leftPixels,
     const vector<Pixel> rightPixels );
 void PixelShader(screen* screen, const Pixel& p );
-void DrawPolygon( screen* screen, const vector<Vertex>& vertices );
+void DrawPolygon( screen* screen, const vector<Vertex>& vertices, vector<Pixel>& pixels );
 void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result );
 vec3 DirectLight( const Vertex & v );
 vector<Pixel> InterpolateLine( Pixel a, Pixel b );
 void UpdateLightColour();
-void ClipPolygon( vector<Vertex>& vertices, int AXIS );
+bool ClipPolygon( vector<Vertex>& vertices );
 
 
 int main( int argc, char* argv[] )
@@ -110,17 +110,26 @@ void Draw(screen* screen)
     currentNormal = triangles[i].normal;
 
     vector<Vertex> vertices(3);
+    vector<Pixel> vertexPixels(3);
+
     vertices[0].position = triangles[i].v0;
+    vertexPixels[0].pos3d = triangles[i].v0;
     vertices[1].position = triangles[i].v1;
+    vertexPixels[1].pos3d = triangles[i].v1;
     vertices[2].position = triangles[i].v2;
+    vertexPixels[2].pos3d = triangles[i].v2;
 
-    for (int v = 0; v < 3; v++ ) vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
+    for (int v = 0; v < 3; v++ ) {
+      //Rotate and Translate Vertex
+      vertices[v].position = yRotation * vertices[v].position;
+      vertices[v].position = vertices[v].position - cameraPos;
+      vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
+    }
 
-    ClipPolygon( vertices, 0 );
-    //ClipPolygon( vertices, 1 );
+    bool inView = ClipPolygon( vertices );
 
     for (int v = 0; v < 3; v++ ) vertices[v].position.w = 1;
-    DrawPolygon( screen, vertices );
+    if (inView) DrawPolygon( screen, vertices, vertexPixels );
   }
 }
 
@@ -235,16 +244,14 @@ bool Update()
 
 
 void VertexShader( const Vertex& v, Pixel& p ) {
-  //Rotate and Translate Vertex
-  vec4 P = yRotation * v.position;
-  P = P - cameraPos;
+  vec4 P = v.position;
 
   //Project points onto image plane
   p.x = (SCREEN_HEIGHT * P.x / P.z) + (SCREEN_WIDTH/2);
   p.y = (SCREEN_HEIGHT * P.y / P.z) + (SCREEN_HEIGHT/2);
   p.zinv = 1.0f / P.z;
 
-  p.pos3d = v.position * p.zinv;
+  p.pos3d = p.pos3d * p.zinv;
 }
 
 vec3 DirectLight( const Pixel& p )
@@ -385,11 +392,10 @@ void PixelShader(screen* screen, const Pixel& p )
        }
 }
 
-void DrawPolygon( screen* screen, const vector<Vertex>& vertices )
+void DrawPolygon( screen* screen, const vector<Vertex>& vertices, vector<Pixel>& vertexPixels )
 {
     int V = vertices.size();
 
-    vector<Pixel> vertexPixels( V );
     for (int i = 0; i < V; i++) {
       VertexShader( vertices[i], vertexPixels[i] );
     }
@@ -401,88 +407,26 @@ void DrawPolygon( screen* screen, const vector<Vertex>& vertices )
 }
 
 
-void ClipPolygon( vector<Vertex>& vertices, int AXIS ) {
-  /*int V = vertices.size();
+bool ClipPolygon( vector<Vertex>& vertices ) {
+  bool inView = false;
+  float umax = SCREEN_WIDTH/2;
+  float vmax = SCREEN_HEIGHT/2;
+  //FIND CORRECT ZMIN!!
+  float zmin = -3.001;
 
-  Vertex currentVertex;
-  Vertex previousVertex = vertices[V-1];
-
-  int numVerticesIn = 0;
-  vector<Vertex> inVertices;
-
-  float previousDot;
-  float currentDot;
-
-  float intersectionFactor;
-  Vertex intersectionPoint;
-
-  //Clip against first plane
-  previousDot = glm::dot(previousVertex.position[AXIS], previousVertex.position.w);
-
-  for (int i = 0; i < V; i++) {
-    currentVertex = vertices[i];
-    currentDot = glm::dot(currentVertex.position[AXIS], currentVertex.position.w);
-    //currentDot = (currentVertex.position[AXIS] <= currentVertex.position.w) ? 1 : -1;
-
-    if (previousDot * currentDot < 0) {
-      intersectionFactor = (previousVertex.position.w - previousVertex.position[AXIS]) /
-        (previousVertex.position.w - previousVertex.position[AXIS]) -
-        (currentVertex.position.w - currentVertex.position[AXIS]);
-      intersectionPoint.position = currentVertex.position;
-      intersectionPoint.position -= previousVertex.position;
-      intersectionPoint.position *= intersectionFactor;
-      intersectionPoint.position += previousVertex.position;
-
-      inVertices.insert(inVertices.end(), intersectionPoint);
-      numVerticesIn++;
-    }
-
-    if (currentDot > 0) {
-      inVertices.insert(inVertices.end(), currentVertex);
-      numVerticesIn++;
-    }
-
-    previousDot = currentDot;
-    previousVertex = currentVertex;
+  for (uint32_t i = 0; i < vertices.size(); i++ ){
+    bool vertexInView = true;
+    float xmax = umax *  vertices[i].position.w;
+    float xmin = -xmax;
+    float ymax = vmax * vertices[i].position.w;
+    float ymin = -ymax;
+    float x = vertices[i].position.x;
+    float y = vertices[i].position.y;
+    float z = vertices[i].position.z;
+    if ( x > xmax || x < xmin || y > ymax || y < ymin || z < zmin ) vertexInView = false;
+    inView = inView || vertexInView;
   }
-
-  vertices.clear();
-  vertices.insert(vertices.end(), inVertices.begin(), inVertices.end());
-  inVertices.clear();
-  numVerticesIn = 0;
-
-  //Clip against opposite plane
-  previousDot = glm::dot(-previousVertex.position[AXIS], previousVertex.position.w);
-
-  for (int i = 0; i < V; i++) {
-    currentVertex = vertices[i];
-    currentDot = glm::dot(-currentVertex.position[AXIS], currentVertex.position.w);
-
-    if (previousDot * currentDot < 0) {
-      intersectionFactor = (previousVertex.position.w + previousVertex.position[AXIS]) /
-        (previousVertex.position.w + previousVertex.position[AXIS]) -
-        (currentVertex.position.w + currentVertex.position[AXIS]);
-      intersectionPoint.position = currentVertex.position;
-      intersectionPoint.position -= previousVertex.position;
-      intersectionPoint.position *= intersectionFactor;
-      intersectionPoint.position += previousVertex.position;
-
-      inVertices.insert(inVertices.end(), intersectionPoint);
-      numVerticesIn++;
-    }
-
-    if (currentDot > 0) {
-      inVertices.insert(inVertices.end(), currentVertex);
-      numVerticesIn++;
-    }
-
-    previousDot = currentDot;
-    previousVertex = currentVertex;
-  }
-
-  vertices.insert(vertices.end(), inVertices.begin(), inVertices.end());
-  inVertices.clear();
-  numVerticesIn = 0;*/
+  return inView;
 }
 
 
