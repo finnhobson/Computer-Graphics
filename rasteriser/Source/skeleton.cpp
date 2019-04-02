@@ -73,6 +73,7 @@ void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result );
 vec3 DirectLight( const Vertex & v );
 vector<Pixel> InterpolateLine( Pixel a, Pixel b );
 void UpdateLightColour();
+void ClipPolygon( vector<Vertex>& vertices, int AXIS );
 
 
 int main( int argc, char* argv[] )
@@ -113,12 +114,12 @@ void Draw(screen* screen)
     vertices[1].position = triangles[i].v1;
     vertices[2].position = triangles[i].v2;
 
+    for (int v = 0; v < 3; v++ ) vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
 
-    // Rotate points around the y-axis
-    vertices[0].position = yRotation * vertices[0].position;
-    vertices[1].position = yRotation * vertices[1].position;
-    vertices[2].position = yRotation * vertices[2].position;
+    ClipPolygon( vertices, 0 );
+    //ClipPolygon( vertices, 1 );
 
+    for (int v = 0; v < 3; v++ ) vertices[v].position.w = 1;
     DrawPolygon( screen, vertices );
   }
 }
@@ -152,12 +153,12 @@ bool Update()
           break;
         case SDLK_LEFT:
           // Move camera left
-          yAngle -= 0.1;
+          yAngle -= float(M_PI)/30.0f;
           UpdateRotation();
           break;
         case SDLK_RIGHT:
           // Move camera right
-          yAngle += 0.1;
+          yAngle += float(M_PI)/30.0f;
           UpdateRotation();
           break;
           case SDLK_w:
@@ -234,18 +235,16 @@ bool Update()
 
 
 void VertexShader( const Vertex& v, Pixel& p ) {
-  float bigX = v.position.x - cameraPos.x;
-  float bigY = v.position.y - cameraPos.y;
-  float bigZ = v.position.z - cameraPos.z;
+  //Rotate and Translate Vertex
+  vec4 P = yRotation * v.position;
+  P = P - cameraPos;
 
-  p.x = (SCREEN_HEIGHT * bigX / bigZ) + (SCREEN_WIDTH/2);
-  p.y = (SCREEN_HEIGHT * bigY / bigZ) + (SCREEN_HEIGHT/2);
-  p.zinv = 1.0f / bigZ;
+  //Project points onto image plane
+  p.x = (SCREEN_HEIGHT * P.x / P.z) + (SCREEN_WIDTH/2);
+  p.y = (SCREEN_HEIGHT * P.y / P.z) + (SCREEN_HEIGHT/2);
+  p.zinv = 1.0f / P.z;
 
-  p.pos3d.x = v.position.x * p.zinv;
-  p.pos3d.y = v.position.y * p.zinv;
-  p.pos3d.z = v.position.z * p.zinv;
-  p.pos3d.w = v.position.w * p.zinv;
+  p.pos3d = v.position * p.zinv;
 }
 
 vec3 DirectLight( const Pixel& p )
@@ -377,7 +376,7 @@ void PixelShader(screen* screen, const Pixel& p )
    {
        int x = p.x;
        int y = p.y;
-       if( p.zinv > depthBuffer[y][x] )
+       if( x > 0 && x < SCREEN_WIDTH && y > 0 && y < SCREEN_HEIGHT && p.zinv > depthBuffer[y][x] )
        {
            depthBuffer[y][x] = p.zinv;
            vec3 directLight = DirectLight(p);
@@ -400,6 +399,92 @@ void DrawPolygon( screen* screen, const vector<Vertex>& vertices )
     ComputePolygonRows( vertexPixels, leftPixels, rightPixels );
     DrawRows( screen, leftPixels, rightPixels );
 }
+
+
+void ClipPolygon( vector<Vertex>& vertices, int AXIS ) {
+  /*int V = vertices.size();
+
+  Vertex currentVertex;
+  Vertex previousVertex = vertices[V-1];
+
+  int numVerticesIn = 0;
+  vector<Vertex> inVertices;
+
+  float previousDot;
+  float currentDot;
+
+  float intersectionFactor;
+  Vertex intersectionPoint;
+
+  //Clip against first plane
+  previousDot = glm::dot(previousVertex.position[AXIS], previousVertex.position.w);
+
+  for (int i = 0; i < V; i++) {
+    currentVertex = vertices[i];
+    currentDot = glm::dot(currentVertex.position[AXIS], currentVertex.position.w);
+    //currentDot = (currentVertex.position[AXIS] <= currentVertex.position.w) ? 1 : -1;
+
+    if (previousDot * currentDot < 0) {
+      intersectionFactor = (previousVertex.position.w - previousVertex.position[AXIS]) /
+        (previousVertex.position.w - previousVertex.position[AXIS]) -
+        (currentVertex.position.w - currentVertex.position[AXIS]);
+      intersectionPoint.position = currentVertex.position;
+      intersectionPoint.position -= previousVertex.position;
+      intersectionPoint.position *= intersectionFactor;
+      intersectionPoint.position += previousVertex.position;
+
+      inVertices.insert(inVertices.end(), intersectionPoint);
+      numVerticesIn++;
+    }
+
+    if (currentDot > 0) {
+      inVertices.insert(inVertices.end(), currentVertex);
+      numVerticesIn++;
+    }
+
+    previousDot = currentDot;
+    previousVertex = currentVertex;
+  }
+
+  vertices.clear();
+  vertices.insert(vertices.end(), inVertices.begin(), inVertices.end());
+  inVertices.clear();
+  numVerticesIn = 0;
+
+  //Clip against opposite plane
+  previousDot = glm::dot(-previousVertex.position[AXIS], previousVertex.position.w);
+
+  for (int i = 0; i < V; i++) {
+    currentVertex = vertices[i];
+    currentDot = glm::dot(-currentVertex.position[AXIS], currentVertex.position.w);
+
+    if (previousDot * currentDot < 0) {
+      intersectionFactor = (previousVertex.position.w + previousVertex.position[AXIS]) /
+        (previousVertex.position.w + previousVertex.position[AXIS]) -
+        (currentVertex.position.w + currentVertex.position[AXIS]);
+      intersectionPoint.position = currentVertex.position;
+      intersectionPoint.position -= previousVertex.position;
+      intersectionPoint.position *= intersectionFactor;
+      intersectionPoint.position += previousVertex.position;
+
+      inVertices.insert(inVertices.end(), intersectionPoint);
+      numVerticesIn++;
+    }
+
+    if (currentDot > 0) {
+      inVertices.insert(inVertices.end(), currentVertex);
+      numVerticesIn++;
+    }
+
+    previousDot = currentDot;
+    previousVertex = currentVertex;
+  }
+
+  vertices.insert(vertices.end(), inVertices.begin(), inVertices.end());
+  inVertices.clear();
+  numVerticesIn = 0;*/
+}
+
 
 void UpdateLightColour()
 {
