@@ -4,6 +4,7 @@
 #include "SDLauxiliary.h"
 #include "TestModelH.h"
 #include <stdint.h>
+#include <bitset>
 
 using namespace std;
 using glm::vec2;
@@ -30,6 +31,7 @@ struct Pixel
 struct Vertex
 {
    vec4 position;
+   bitset<4> outcode;
 };
 
 /* ----------------------------------------------------------------------------*/
@@ -53,6 +55,9 @@ vec3 indirectLight = 0.5f * vec3(red, green, blue);
 vec3 currentColor;
 vec4 currentNormal;
 
+float umax = SCREEN_WIDTH/2;
+float vmax = SCREEN_HEIGHT/2;
+
 
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
@@ -73,8 +78,12 @@ void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result );
 vec3 DirectLight( const Vertex & v );
 vector<Pixel> InterpolateLine( Pixel a, Pixel b );
 void UpdateLightColour();
-bool ClipPolygon( vector<Vertex>& vertices );
-
+bool CullPolygon( vector<Vertex>& vertices );
+void CalculateOutcode(vector<Vertex>& vertices);
+vector<Vertex> ClipPolygonTop(vector<Vertex>& vertices);
+vector<Vertex> ClipPolygonLeft(vector<Vertex>& vertices);
+vector<Vertex> ClipPolygonBottom(vector<Vertex>& vertices);
+vector<Vertex> ClipPolygonRight(vector<Vertex>& vertices);
 
 int main( int argc, char* argv[] )
 {
@@ -119,6 +128,12 @@ void Draw(screen* screen)
     vertices[2].position = triangles[i].v2;
     vertexPixels[2].pos3d = triangles[i].v2;
 
+    // CalculateOutcode(vertices);
+    vertices = ClipPolygonTop(vertices);
+    vertices = ClipPolygonLeft(vertices);
+    vertices = ClipPolygonBottom(vertices);
+    vertices = ClipPolygonRight(vertices);
+
     for (int v = 0; v < 3; v++ ) {
       //Rotate and Translate Vertex
       vertices[v].position = yRotation * vertices[v].position;
@@ -126,7 +141,7 @@ void Draw(screen* screen)
       vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
     }
 
-    bool inView = ClipPolygon( vertices );
+    bool inView = CullPolygon( vertices );
 
     for (int v = 0; v < 3; v++ ) vertices[v].position.w = 1;
     if (inView) DrawPolygon( screen, vertices, vertexPixels );
@@ -407,28 +422,243 @@ void DrawPolygon( screen* screen, const vector<Vertex>& vertices, vector<Pixel>&
 }
 
 
-bool ClipPolygon( vector<Vertex>& vertices ) {
+bool CullPolygon( vector<Vertex>& vertices ) {
   bool inView = false;
-  float umax = SCREEN_WIDTH/2;
-  float vmax = SCREEN_HEIGHT/2;
   //FIND CORRECT ZMIN!!
   float zmin = -3.001;
 
   for (uint32_t i = 0; i < vertices.size(); i++ ){
     bool vertexInView = true;
+    // float xmax = umax *  vertices[i].position.w;
+    // float xmin = -xmax;
+    // float ymax = vmax * vertices[i].position.w;
+    // float ymin = -ymax;
+    // float x = vertices[i].position.x;
+    // float y = vertices[i].position.y;
+    float z = vertices[i].position.z;
+    if ( /*x > xmax || x < xmin || y > ymax || y < ymin ||*/ z < zmin ) vertexInView = false;
+    inView = inView || vertexInView;
+  }
+  return inView;
+}
+
+void CalculateOutcode(vector<Vertex>& vertices) {
+  for (uint32_t i = 0; i < vertices.size(); i++ ){
     float xmax = umax *  vertices[i].position.w;
     float xmin = -xmax;
     float ymax = vmax * vertices[i].position.w;
     float ymin = -ymax;
     float x = vertices[i].position.x;
     float y = vertices[i].position.y;
-    float z = vertices[i].position.z;
-    if ( x > xmax || x < xmin || y > ymax || y < ymin || z < zmin ) vertexInView = false;
-    inView = inView || vertexInView;
+    if(y > ymax) vertices[i].outcode[3] = 1;
+    if(y < ymin) vertices[i].outcode[2] = 1;
+    if(x > xmax) vertices[i].outcode[1] = 1;
+    if(x < xmin) vertices[i].outcode[0] = 1;
   }
-  return inView;
 }
 
+vector<Vertex> ClipPolygonTop(vector<Vertex>& vertices) {
+  vector<Vertex> clippedVertices;
+  for(int i = 0; i < vertices.size(); i++) {
+    int j = (i+1)%3;
+
+    float ymax = vmax * vertices[i].position.w;
+    float ix = vertices[i].position.x;
+    float iy = vertices[i].position.y;
+    float iz = vertices[i].position.z;
+    float jx = vertices[j].position.x;
+    float jy = vertices[j].position.y;
+    float jz = vertices[j].position.z;
+
+    // Case 1: both vertices inside. Second vertex only added to ClippedVertices
+    if(iy <= ymax && jy <= ymax) {
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
+    if (iy >= ymax  && jy <= ymax) {
+
+      float t = (ymax - iy)/jy;
+
+      Vertex intersect1;
+      intersect1.position.x = ix + t * jx;
+      intersect1.position.y = ymax;
+      intersect1.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect1);
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // // Case 3: When only second point is outside. Only point of intersection with edge is added
+    else if (iy <= ymax  && jy >= ymax) {
+
+      float t = (ymax - iy)/jy;
+
+      Vertex intersect2;
+      intersect2.position.x = ix + t * jx;
+      intersect2.position.y = ymax;
+      intersect2.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect2);
+    }
+
+    // Case 4: Both points outside so neither added to ClippedVertices
+  }
+  return clippedVertices;
+}
+
+vector<Vertex> ClipPolygonLeft(vector<Vertex>& vertices) {
+  vector<Vertex> clippedVertices;
+  for(int i = 0; i < vertices.size(); i++) {
+    int j = (i+1)%3;
+
+    float xmax = umax *  vertices[i].position.w;
+    float xmin = -xmax;
+    float ymax = vmax * vertices[i].position.w;
+    float ix = vertices[i].position.x;
+    float iy = vertices[i].position.y;
+    float iz = vertices[i].position.z;
+    float jx = vertices[j].position.x;
+    float jy = vertices[j].position.y;
+    float jz = vertices[j].position.z;
+
+    // Case 1: both vertices inside. Second vertex only added to ClippedVertices
+    if(ix >= xmin && jy >= xmin) {
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
+    if (ix <= xmin  && jy >= xmin) {
+
+      float t = (xmin - ix)/jx;
+
+      Vertex intersect1;
+      intersect1.position.x = xmin;
+      intersect1.position.y = iy + t * jy;
+      intersect1.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect1);
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // // Case 3: When only second point is outside. Only point of intersection with edge is added
+    else if (iy <= ymax  && jy >= ymax) {
+
+      float t = (xmin - ix)/jx;
+
+      Vertex intersect2;
+      intersect2.position.x = xmin;
+      intersect2.position.y = iy + t * jy;
+      intersect2.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect2);
+    }
+
+    // Case 4: Both points outside so neither added to ClippedVertices
+  }
+  return clippedVertices;
+}
+
+vector<Vertex> ClipPolygonBottom(vector<Vertex>& vertices) {
+  vector<Vertex> clippedVertices;
+  for(int i = 0; i < vertices.size(); i++) {
+    int j = (i+1)%3;
+
+    float ymax = vmax * vertices[i].position.w;
+    float ymin = -ymax;
+    float ix = vertices[i].position.x;
+    float iy = vertices[i].position.y;
+    float iz = vertices[i].position.z;
+    float jx = vertices[j].position.x;
+    float jy = vertices[j].position.y;
+    float jz = vertices[j].position.z;
+
+    // Case 1: both vertices inside. Second vertex only added to ClippedVertices
+    if(iy >= ymin && jy >= ymin) {
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
+    if (iy <= ymin  && jy >= ymin) {
+
+      float t = (ymin - iy)/jy;
+
+      Vertex intersect1;
+      intersect1.position.x = ix + t * jx;;
+      intersect1.position.y = ymin;
+      intersect1.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect1);
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // // Case 3: When only second point is outside. Only point of intersection with edge is added
+    else if (iy >= ymin  && jy <= ymin) {
+
+      float t = (ymin - iy)/jy;
+
+      Vertex intersect2;
+      intersect2.position.x = ix + t * jx;
+      intersect2.position.y = ymin;
+      intersect2.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect2);
+    }
+
+    // Case 4: Both points outside so neither added to ClippedVertices
+  }
+  return clippedVertices;
+}
+
+vector<Vertex> ClipPolygonRight(vector<Vertex>& vertices) {
+  vector<Vertex> clippedVertices;
+  for(int i = 0; i < vertices.size(); i++) {
+    int j = (i+1)%3;
+
+    float xmax = umax *  vertices[i].position.w;
+    float ix = vertices[i].position.x;
+    float iy = vertices[i].position.y;
+    float iz = vertices[i].position.z;
+    float jx = vertices[j].position.x;
+    float jy = vertices[j].position.y;
+    float jz = vertices[j].position.z;
+
+    // Case 1: both vertices inside. Second vertex only added to ClippedVertices
+    if(ix <= xmax && jx <= xmax) {
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
+    if (ix >= xmax  && jx <= xmax) {
+
+      float t = (xmax - ix)/jx;
+
+      Vertex intersect1;
+      intersect1.position.x = xmax;
+      intersect1.position.y = iy + t * jy;
+      intersect1.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect1);
+      clippedVertices.push_back(vertices[j]);
+    }
+
+    // // Case 3: When only second point is outside. Only point of intersection with edge is added
+    else if (ix <= xmax  && jx >= xmax) {
+
+      float t = (xmax - ix)/jx;
+
+      Vertex intersect2;
+      intersect2.position.x = xmax;
+      intersect2.position.y = iy + t * jy;
+      intersect2.position.z = iz + t * jz;
+
+      clippedVertices.push_back(intersect2);
+    }
+
+    // Case 4: Both points outside so neither added to ClippedVertices
+  }
+  return clippedVertices;
+}
 
 void UpdateLightColour()
 {
