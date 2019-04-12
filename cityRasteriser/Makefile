@@ -1,4 +1,5 @@
 FILE=skeleton
+FILE2=GenerateCity
 
 ########
 #   Directories
@@ -29,14 +30,17 @@ all:Build
 ########
 #   Object list
 #
-OBJ = $(B_DIR)/$(FILE).o
+OBJ = $(B_DIR)/$(FILE).o $(B_DIR)/$(FILE2).o
 
 
 ########
 #   Objects
-$(B_DIR)/$(FILE).o : $(S_DIR)/$(FILE).cpp $(S_DIR)/SDLauxiliary.h $(S_DIR)/TestModelH.h
+
+$(B_DIR)/$(FILE).o : $(S_DIR)/$(FILE).cpp $(S_DIR)/SDLauxiliary.h $(S_DIR)/GenerateCity.h
 	$(CC) $(CC_OPTS) -o $(B_DIR)/$(FILE).o $(S_DIR)/$(FILE).cpp $(SDL_CFLAGS) $(GLM_CFLAGS)
 
+$(B_DIR)/$(FILE2).o : $(S_DIR)/$(FILE2).cpp $(S_DIR)/SDLauxiliary.h $(S_DIR)/GenerateCity.h
+	$(CC) $(CC_OPTS) -o $(B_DIR)/$(FILE2).o $(S_DIR)/$(FILE2).cpp $(SDL_CFLAGS) $(GLM_CFLAGS)
 
 ########
 #   Main build rule

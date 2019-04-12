@@ -2,8 +2,7 @@
 #include <glm/glm.hpp>
 #include <SDL.h>
 #include "SDLauxiliary.h"
-//#include "TestModelH.h"
-#include "CityModel.h"
+#include "GenerateCity.h"
 #include <stdint.h>
 
 using namespace std;
