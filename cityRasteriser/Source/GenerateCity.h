@@ -32,6 +32,15 @@ public:
 	}
 };
 
+struct Car
+{
+  glm::vec4 position;
+  glm::vec3 colour;
+  glm::vec4 movement;
+};
+
 void GenerateModel( std::vector<Triangle>& triangles );
+void GenerateCars( std::vector<Car>& cars );
+
 
 #endif

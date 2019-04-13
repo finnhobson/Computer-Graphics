@@ -5,13 +5,15 @@
 #include <random>
 #include "GenerateCity.h"
 
+using glm::vec3;
+using glm::vec4;
+
 // Procedurally generates a city model.
+
+float L = 5000;
 
 void GenerateModel( std::vector<Triangle>& triangles )
 {
-	using glm::vec3;
-	using glm::vec4;
-
 	// Defines colors:
 	vec3 red(    0.75f, 0.15f, 0.15f );
 	vec3 yellow( 0.75f, 0.75f, 0.15f );
@@ -31,7 +33,6 @@ void GenerateModel( std::vector<Triangle>& triangles )
 	// ---------------------------------------------------------------------------
 	// Room
 
-	float L = 5000;
 	float outer = 7500;
 
 	vec4 A(outer,0,0,1);
@@ -45,8 +46,8 @@ void GenerateModel( std::vector<Triangle>& triangles )
 	vec4 H(0,outer,outer,1);
 
 	// Floor:
-	triangles.push_back( Triangle( C, B, A, road ) );
-	triangles.push_back( Triangle( C, D, B, road ) );
+	//triangles.push_back( Triangle( C, B, A, road ) );
+	//triangles.push_back( Triangle( C, D, B, road ) );
 
 	// ---------------------------------------------------------------------------
 	// Buildings
@@ -152,5 +153,49 @@ void GenerateModel( std::vector<Triangle>& triangles )
 		triangles[i].v0 += vec4(0.5,0,-0.5,0);
 		triangles[i].v1 += vec4(0.5,0,-0.5,0);
 		triangles[i].v2 += vec4(0.5,0,-0.5,0);
+	}
+}
+
+void GenerateCars( std::vector<Car>& cars ) {
+	for ( unsigned int i = 0; i < cars.size(); i++ ) {
+    if (i < cars.size()*0.5f) {
+			int randX = (rand() % 7) * 750;
+			int randZ = rand() % 5000;
+			cars[i].position = vec4(randX, 5, randZ, 0);
+			if (i < cars.size() * 0.25f) {
+				cars[i].colour = vec3(3,3,3);
+				cars[i].position += vec4(50, 0, 0, 0);
+				cars[i].movement = vec4(0, 0, -1, 0);
+			}
+			else {
+				cars[i].colour = vec3(3,0,0);
+				cars[i].position += vec4(100,0,0,0);
+				cars[i].movement = vec4(0, 0, 1, 0);
+			}
+		}
+		else {
+			int randZ = (rand() % 7) * 750;
+			int randX = rand() % 5000;
+			cars[i].position = vec4(randX, 5, randZ, 0);
+			if (i < cars.size() * 0.75f) {
+				cars[i].colour = vec3(3,3,3);
+				cars[i].position += vec4(0, 0, 50, 0);
+				cars[i].movement = vec4(-1, 0, 0, 0);
+			}
+			else {
+				cars[i].colour = vec3(3,0,0);
+				cars[i].position += vec4(0,0,100,0);
+				cars[i].movement = vec4(1, 0, 0, 0);
+			}
+		}
+  }
+
+	for( size_t i=0; i<cars.size(); ++i )
+	{
+		cars[i].position *= 2/L;
+		cars[i].position -= vec4(1,1,1,1);
+		cars[i].position.x *= -1;
+		cars[i].position.y *= -1;
+		cars[i].position.w = 1.0;
 	}
 }

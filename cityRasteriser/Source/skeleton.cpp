@@ -17,7 +17,7 @@ SDL_Event event;
 
 #define SCREEN_WIDTH 500
 #define SCREEN_HEIGHT 500
-#define FULLSCREEN_MODE false
+#define FULLSCREEN_MODE true
 
 struct Pixel
 {
@@ -55,6 +55,8 @@ vec4 currentNormal;
 
 vector<vec2> stars(200);
 
+vector<Car> cars(300);
+
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
 /* ---------------------------------------------------------------------------- */
@@ -82,8 +84,8 @@ int main( int argc, char* argv[] )
 
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
-  //LoadTestModel(triangles);
   GenerateModel(triangles);
+  GenerateCars(cars);
 
   for ( unsigned int i = 0; i < stars.size(); i++ )
   {
@@ -112,6 +114,17 @@ void Draw(screen* screen)
   for ( unsigned int i = 0; i < stars.size(); ++i )
     if (stars[i].x > 0 && stars[i].x < SCREEN_WIDTH && stars[i].y > 0 && stars[i].y < SCREEN_HEIGHT)
       PutPixelSDL(screen, stars[i].x, stars[i].y, vec3(1,1,1));
+
+  for ( unsigned int i = 0; i < cars.size(); ++i )
+  {
+    vec4 position = yRotation * cars[i].position;
+    position = position - cameraPos;
+    float uCar = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
+    float vCar = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
+    //vec3 colour = 0.2f * cars[i].colour / (cars[i].position.z*cars[i].position.z);
+    if (uCar > 0 && uCar < SCREEN_WIDTH && vCar > 0 && vCar < SCREEN_HEIGHT)
+      PutPixelSDL(screen, uCar, vCar, cars[i].colour);
+  }
 
   for( int y=0; y<SCREEN_HEIGHT; ++y )
     for( int x=0; x<SCREEN_WIDTH; ++x )
@@ -156,12 +169,21 @@ bool Update()
   t = t2;
   //std::cout << "Render time: " << dt << " ms." << std::endl;
 
-  float velocity = 0.005f;
+  float velocity = 0.001f;
 
   for ( unsigned int i = 0; i < stars.size(); ++i )
   {
     stars[i].y = stars[i].y - velocity * dt;
     if (stars[i].y <= 0) stars[i].y += SCREEN_HEIGHT * 0.6;
+  }
+
+  for ( unsigned int i = 0; i < cars.size(); ++i )
+  {
+    cars[i].position = cars[i].position + cars[i].movement * 0.005f;
+    if (cars[i].position.z < -1) cars[i].position.z += 2;
+    else if (cars[i].position.z > 1) cars[i].position.z -= 2;
+    if (cars[i].position.x < -1) cars[i].position.x += 2;
+    else if (cars[i].position.x > 1) cars[i].position.x -= 2;
   }
 
   SDL_Event e;
@@ -175,6 +197,7 @@ bool Update()
       {
         case SDLK_SPACE:
           GenerateModel(triangles);
+          GenerateCars(cars);
           break;
         case SDLK_UP:
           // Move camera forward
