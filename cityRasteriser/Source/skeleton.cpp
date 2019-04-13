@@ -17,7 +17,7 @@ SDL_Event event;
 
 #define SCREEN_WIDTH 500
 #define SCREEN_HEIGHT 500
-#define FULLSCREEN_MODE true
+#define FULLSCREEN_MODE false
 
 struct Pixel
 {
@@ -38,7 +38,7 @@ vector<Triangle> triangles;
 
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
-vec4 cameraPos( 0, 0.5, -3.001, 1 );
+vec4 cameraPos( 0, 0.5, -2.001, 1 );
 mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
@@ -53,6 +53,7 @@ vec3 indirectLight = 0.5f * vec3(red, green, blue);
 vec3 currentColor;
 vec4 currentNormal;
 
+vector<vec2> stars(200);
 
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
@@ -84,6 +85,12 @@ int main( int argc, char* argv[] )
   //LoadTestModel(triangles);
   GenerateModel(triangles);
 
+  for ( unsigned int i = 0; i < stars.size(); i++ )
+  {
+    stars[i].x = rand() % SCREEN_WIDTH * 2 - 1;
+    stars[i].y = rand() % SCREEN_HEIGHT * 0.6;
+  }
+
   while ( Update())
     {
       Draw(screen);
@@ -101,6 +108,10 @@ void Draw(screen* screen)
 {
   /* Clear buffer */
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
+
+  for ( unsigned int i = 0; i < stars.size(); ++i )
+    if (stars[i].x > 0 && stars[i].x < SCREEN_WIDTH && stars[i].y > 0 && stars[i].y < SCREEN_HEIGHT)
+      PutPixelSDL(screen, stars[i].x, stars[i].y, vec3(1,1,1));
 
   for( int y=0; y<SCREEN_HEIGHT; ++y )
     for( int x=0; x<SCREEN_WIDTH; ++x )
@@ -138,12 +149,20 @@ void Draw(screen* screen)
 /*Place updates of parameters here*/
 bool Update()
 {
-  /*static int t = SDL_GetTicks();
+  static int t = SDL_GetTicks();
   // Compute frame time
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
   t = t2;
-  std::cout << "Render time: " << dt << " ms." << std::endl;*/
+  std::cout << "Render time: " << dt << " ms." << std::endl;
+
+  float velocity = 0.005f;
+
+  for ( unsigned int i = 0; i < stars.size(); ++i )
+  {
+    stars[i].y = stars[i].y - velocity * dt;
+    if (stars[i].y <= 0) stars[i].y += SCREEN_HEIGHT * 0.6;
+  }
 
   SDL_Event e;
   while(SDL_PollEvent(&e))
@@ -167,13 +186,21 @@ bool Update()
           break;
         case SDLK_LEFT:
           // Move camera left
-          yAngle -= float(M_PI)/50.0f;
+          yAngle -= float(M_PI) * 0.02f;
           UpdateRotation();
+          for ( unsigned int i = 0; i < stars.size(); ++i )
+          {
+            stars[i].x += float(M_PI);
+          }
           break;
         case SDLK_RIGHT:
           // Move camera right
-          yAngle += float(M_PI)/50.0f;
+          yAngle += float(M_PI) * 0.02f;
           UpdateRotation();
+          for ( unsigned int i = 0; i < stars.size(); ++i )
+          {
+            stars[i].x -= float(M_PI);
+          }
           break;
           case SDLK_w:
             // Move light forward
@@ -252,8 +279,8 @@ void VertexShader( const Vertex& v, Pixel& p ) {
   vec4 P = v.position;
 
   //Project points onto image plane
-  p.x = (SCREEN_HEIGHT * P.x / P.z) + (SCREEN_WIDTH/2);
-  p.y = (SCREEN_HEIGHT * P.y / P.z) + (SCREEN_HEIGHT/2);
+  p.x = (SCREEN_HEIGHT * P.x / P.z) + (SCREEN_WIDTH * 0.5f);
+  p.y = (SCREEN_HEIGHT * P.y / P.z) + (SCREEN_HEIGHT * 0.5f);
   p.zinv = 1.0f / P.z;
 
   p.pos3d = p.pos3d * p.zinv;
