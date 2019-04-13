@@ -32,16 +32,17 @@ void GenerateModel( std::vector<Triangle>& triangles )
 	// Room
 
 	float L = 5000;
+	float outer = 7500;
 
-	vec4 A(L,0,0,1);
+	vec4 A(outer,0,0,1);
 	vec4 B(0,0,0,1);
-	vec4 C(L,0,L,1);
-	vec4 D(0,0,L,1);
+	vec4 C(outer,0,outer,1);
+	vec4 D(0,0,outer,1);
 
-	vec4 E(L,L,0,1);
-	vec4 F(0,L,0,1);
-	vec4 G(L,L,L,1);
-	vec4 H(0,L,L,1);
+	vec4 E(outer,outer,0,1);
+	vec4 F(0,outer,0,1);
+	vec4 G(outer,outer,outer,1);
+	vec4 H(0,outer,outer,1);
 
 	// Floor:
 	triangles.push_back( Triangle( C, B, A, road ) );
@@ -55,18 +56,24 @@ void GenerateModel( std::vector<Triangle>& triangles )
 
 	int x = 0;
 	int z = 0;
-	int width = 100;
+	int width = 150;
 	vec3 colour;
 
 	while (x < L)
 	{
 		while (z < L)
 		{
-			if (x % 500 != 0 && z % 500 != 0) {
+			if (x % 750 != 0 && z % 750 != 0) {
 				srand(time(NULL) * x + z);
+				int normHeight = (L - abs(L/2 - x) - abs(L/2 - z)) / 6;
+				int randWidth = rand() % 60 + 90;
 
-				int randHeight = rand() % 500 + 200;
-				int randWidth = rand() % 40 + 60;
+				int randHeight = rand() % normHeight + 50;
+				if (randHeight > normHeight && randHeight > 600) {
+					randHeight += 200;
+					randWidth = width;
+				}
+
 				int widthGap = (width - randWidth)/2;
 
 				A = vec4(x+widthGap,0,z+width-widthGap,1);
@@ -138,5 +145,12 @@ void GenerateModel( std::vector<Triangle>& triangles )
 		triangles[i].v2.w = 1.0;
 
 		triangles[i].ComputeNormal();
+	}
+
+	for( size_t i=0; i<2; ++i )
+	{
+		triangles[i].v0 += vec4(0.5,0,-0.5,0);
+		triangles[i].v1 += vec4(0.5,0,-0.5,0);
+		triangles[i].v2 += vec4(0.5,0,-0.5,0);
 	}
 }

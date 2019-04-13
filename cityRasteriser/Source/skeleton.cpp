@@ -154,7 +154,7 @@ bool Update()
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
   t = t2;
-  std::cout << "Render time: " << dt << " ms." << std::endl;
+  //std::cout << "Render time: " << dt << " ms." << std::endl;
 
   float velocity = 0.005f;
 
