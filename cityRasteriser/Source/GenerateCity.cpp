@@ -40,10 +40,7 @@ void GenerateModel( std::vector<Triangle>& triangles )
 	vec4 C(outer,0,outer,1);
 	vec4 D(0,0,outer,1);
 
-	vec4 E(outer,outer,0,1);
-	vec4 F(0,outer,0,1);
-	vec4 G(outer,outer,outer,1);
-	vec4 H(0,outer,outer,1);
+	vec4 E, F, G, H, I;
 
 	// Floor:
 	//triangles.push_back( Triangle( C, B, A, road ) );
@@ -69,7 +66,7 @@ void GenerateModel( std::vector<Triangle>& triangles )
 				int normHeight = (L - abs(L/2 - x) - abs(L/2 - z)) / 6;
 				int randWidth = rand() % 60 + 90;
 
-				int randHeight = rand() % normHeight + 50;
+				int randHeight = rand() % normHeight + 20;
 				if (randHeight > normHeight && randHeight > 600) {
 					randHeight += 200;
 					randWidth = width;
@@ -112,6 +109,16 @@ void GenerateModel( std::vector<Triangle>& triangles )
 				// TOP
 				triangles.push_back( Triangle(G,F,E,colour) );
 				triangles.push_back( Triangle(G,H,F,colour) );
+
+				int pointedTop = rand() % 4;
+				if (randHeight > 600 && pointedTop == 0) {
+					I = vec4(x+width/2, randHeight + 50, z+width/2, 1);
+
+					triangles.push_back( Triangle(I,E,F,colour) );
+					triangles.push_back( Triangle(I,E,G,colour) );
+					triangles.push_back( Triangle(I,F,H,colour) );
+					triangles.push_back( Triangle(I,G,H,colour) );
+				}
 			}
 			z += width;
 		}
@@ -148,12 +155,12 @@ void GenerateModel( std::vector<Triangle>& triangles )
 		triangles[i].ComputeNormal();
 	}
 
-	for( size_t i=0; i<2; ++i )
+	/*for( size_t i=0; i<2; ++i )
 	{
 		triangles[i].v0 += vec4(0.5,0,-0.5,0);
 		triangles[i].v1 += vec4(0.5,0,-0.5,0);
 		triangles[i].v2 += vec4(0.5,0,-0.5,0);
-	}
+	}*/
 }
 
 void GenerateCars( std::vector<Car>& cars ) {
@@ -197,5 +204,25 @@ void GenerateCars( std::vector<Car>& cars ) {
 		cars[i].position.x *= -1;
 		cars[i].position.y *= -1;
 		cars[i].position.w = 1.0;
+	}
+}
+
+void GenerateLights( std::vector<glm::vec4>& lights ) {
+	for (int i = 0; i < 7; i++) {
+		for (int j = 0; j < 50; j++ ) {
+				lights.push_back( vec4(i*750 + 20, 5, L/40 * j - L/8, 1) );
+				lights.push_back( vec4(i*750 + 130, 5, L/40 * j - L/8, 1) );
+				lights.push_back( vec4(L/40 * j - L/8, 5, i*750 + 20, 1) );
+				lights.push_back( vec4(L/40 * j - L/8, 5, i*750 + 130, 1) );
+		}
+	}
+
+	for( size_t i=0; i<lights.size(); ++i )
+	{
+		lights[i] *= 2/L;
+		lights[i] -= vec4(1,1,1,1);
+		lights[i].x *= -1;
+		lights[i].y *= -1;
+		lights[i].w = 1.0;
 	}
 }

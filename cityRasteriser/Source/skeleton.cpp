@@ -42,7 +42,7 @@ vec4 cameraPos( 0, 0.5, -2.001, 1 );
 mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
-vec4 lightPos( 0, -0.5, -0.7, 1.0 );
+vec4 lightPos( 0, -0.8, -0.7, 1.0 );
 float intensity = 12.f;
 float red = 1.0f;
 float green = 1.0f;
@@ -54,8 +54,8 @@ vec3 currentColor;
 vec4 currentNormal;
 
 vector<vec2> stars(200);
-
 vector<Car> cars(300);
+vector<vec4> lights;
 
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
@@ -77,6 +77,7 @@ vec3 DirectLight( const Vertex & v );
 vector<Pixel> InterpolateLine( Pixel a, Pixel b );
 void UpdateLightColour();
 bool ClipPolygon( vector<Vertex>& vertices );
+void DrawTriangle( screen* screen, Triangle& triangle );
 
 
 int main( int argc, char* argv[] )
@@ -86,6 +87,7 @@ int main( int argc, char* argv[] )
 
   GenerateModel(triangles);
   GenerateCars(cars);
+  GenerateLights(lights);
 
   for ( unsigned int i = 0; i < stars.size(); i++ )
   {
@@ -115,48 +117,67 @@ void Draw(screen* screen)
     if (stars[i].x > 0 && stars[i].x < SCREEN_WIDTH && stars[i].y > 0 && stars[i].y < SCREEN_HEIGHT)
       PutPixelSDL(screen, stars[i].x, stars[i].y, vec3(1,1,1));
 
+  //for( uint32_t i=0; i<2; ++i ) DrawTriangle( screen, triangles[i] );
+
   for ( unsigned int i = 0; i < cars.size(); ++i )
   {
     vec4 position = yRotation * cars[i].position;
     position = position - cameraPos;
     float uCar = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
     float vCar = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
-    //vec3 colour = 0.2f * cars[i].colour / (cars[i].position.z*cars[i].position.z);
-    if (uCar > 0 && uCar < SCREEN_WIDTH && vCar > 0 && vCar < SCREEN_HEIGHT)
-      PutPixelSDL(screen, uCar, vCar, cars[i].colour);
+    vec3 colour = 0.5f * cars[i].colour / position.z;
+    if (position.z > 0 && uCar > 1 && uCar < SCREEN_WIDTH-1 && vCar > 1 && vCar < SCREEN_HEIGHT-1) {
+        PutPixelSDL(screen, uCar, vCar, colour);
+        PutPixelSDL(screen, uCar+1, vCar, colour);
+        PutPixelSDL(screen, uCar, vCar+1, colour);
+        PutPixelSDL(screen, uCar+1, vCar+1, colour);
+    }
+  }
+
+  for ( unsigned int i = 0; i < lights.size(); ++i )
+  {
+    vec4 position = yRotation * lights[i];
+    position = position - cameraPos;
+    float uLight = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
+    float vLight = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
+    vec3 colour = 1.5f * vec3(0, 1, 1) / position.z;
+    if (position.z > 0 && uLight > 0 && uLight < SCREEN_WIDTH && vLight > 0 && vLight < SCREEN_HEIGHT)
+      PutPixelSDL(screen, uLight, vLight, colour);
   }
 
   for( int y=0; y<SCREEN_HEIGHT; ++y )
     for( int x=0; x<SCREEN_WIDTH; ++x )
       depthBuffer[y][x] = 0;
 
-  for( uint32_t i=0; i<triangles.size(); ++i ){
-    currentColor = triangles[i].color;
-    currentNormal = triangles[i].normal;
+  for( uint32_t i=0; i<triangles.size(); ++i ) DrawTriangle( screen, triangles[i] );
+}
 
-    vector<Vertex> vertices(3);
-    vector<Pixel> vertexPixels(3);
+void DrawTriangle( screen* screen, Triangle& triangle ) {
+  currentColor = triangle.color;
+  currentNormal = triangle.normal;
 
-    vertices[0].position = triangles[i].v0;
-    vertices[1].position = triangles[i].v1;
-    vertices[2].position = triangles[i].v2;
+  vector<Vertex> vertices(3);
+  vector<Pixel> vertexPixels(3);
 
-    vertexPixels[0].pos3d = triangles[i].v0;
-    vertexPixels[1].pos3d = triangles[i].v1;
-    vertexPixels[2].pos3d = triangles[i].v2;
+  vertices[0].position = triangle.v0;
+  vertices[1].position = triangle.v1;
+  vertices[2].position = triangle.v2;
 
-    for (int v = 0; v < 3; v++ ) {
-      //Rotate and Translate Vertex
-      vertices[v].position = yRotation * vertices[v].position;
-      vertices[v].position = vertices[v].position - cameraPos;
-      vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
-    }
+  vertexPixels[0].pos3d = triangle.v0;
+  vertexPixels[1].pos3d = triangle.v1;
+  vertexPixels[2].pos3d = triangle.v2;
 
-    bool inView = ClipPolygon( vertices );
-
-    for (int v = 0; v < 3; v++ ) vertices[v].position.w = 1;
-    if (inView) DrawPolygon( screen, vertices, vertexPixels );
+  for (int v = 0; v < 3; v++ ) {
+    //Rotate and Translate Vertex
+    vertices[v].position = yRotation * vertices[v].position;
+    vertices[v].position = vertices[v].position - cameraPos;
+    vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
   }
+
+  bool inView = ClipPolygon( vertices );
+
+  for (int v = 0; v < 3; v++ ) vertices[v].position.w = 1;
+  if (inView) DrawPolygon( screen, vertices, vertexPixels );
 }
 
 /*Place updates of parameters here*/
@@ -180,10 +201,10 @@ bool Update()
   for ( unsigned int i = 0; i < cars.size(); ++i )
   {
     cars[i].position = cars[i].position + cars[i].movement * 0.005f;
-    if (cars[i].position.z < -1) cars[i].position.z += 2;
-    else if (cars[i].position.z > 1) cars[i].position.z -= 2;
-    if (cars[i].position.x < -1) cars[i].position.x += 2;
-    else if (cars[i].position.x > 1) cars[i].position.x -= 2;
+    if (cars[i].position.z < -1.5) cars[i].position.z += 3;
+    else if (cars[i].position.z > 1.5) cars[i].position.z -= 3;
+    if (cars[i].position.x < -1.5) cars[i].position.x += 3;
+    else if (cars[i].position.x > 1.5) cars[i].position.x -= 3;
   }
 
   SDL_Event e;
