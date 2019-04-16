@@ -134,12 +134,14 @@ void Draw(screen* screen)
     vertices = ClipPolygonBottom(vertices);
     vertices = ClipPolygonRight(vertices);
 
+
     for (int v = 0; v < 3; v++ ) {
       //Rotate and Translate Vertex
       vertices[v].position = yRotation * vertices[v].position;
       vertices[v].position = vertices[v].position - cameraPos;
       vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
     }
+
 
     bool inView = CullPolygon( vertices );
 
@@ -463,6 +465,7 @@ vector<Vertex> ClipPolygonTop(vector<Vertex>& vertices) {
     int j = (i+1)%3;
 
     float ymax = vmax * vertices[i].position.w;
+    float ymin = -ymax;
     float ix = vertices[i].position.x;
     float iy = vertices[i].position.y;
     float iz = vertices[i].position.z;
@@ -470,19 +473,19 @@ vector<Vertex> ClipPolygonTop(vector<Vertex>& vertices) {
     float jy = vertices[j].position.y;
     float jz = vertices[j].position.z;
 
+    float t = (ymin - iy)/jy;
+
     // Case 1: both vertices inside. Second vertex only added to ClippedVertices
-    if(iy <= ymax && jy <= ymax) {
+    if(iy >= ymin && jy >= ymin) {
       clippedVertices.push_back(vertices[j]);
     }
 
     // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
-    if (iy >= ymax  && jy <= ymax) {
-
-      float t = (ymax - iy)/jy;
+    if (iy < ymin  && jy >= ymin) {
 
       Vertex intersect1;
       intersect1.position.x = ix + t * jx;
-      intersect1.position.y = ymax;
+      intersect1.position.y = ymin;
       intersect1.position.z = iz + t * jz;
 
       clippedVertices.push_back(intersect1);
@@ -490,13 +493,11 @@ vector<Vertex> ClipPolygonTop(vector<Vertex>& vertices) {
     }
 
     // // Case 3: When only second point is outside. Only point of intersection with edge is added
-    else if (iy <= ymax  && jy >= ymax) {
-
-      float t = (ymax - iy)/jy;
+    else if (iy >= ymin  && jy < ymin) {
 
       Vertex intersect2;
       intersect2.position.x = ix + t * jx;
-      intersect2.position.y = ymax;
+      intersect2.position.y = ymin;
       intersect2.position.z = iz + t * jz;
 
       clippedVertices.push_back(intersect2);
@@ -521,16 +522,15 @@ vector<Vertex> ClipPolygonLeft(vector<Vertex>& vertices) {
     float jx = vertices[j].position.x;
     float jy = vertices[j].position.y;
     float jz = vertices[j].position.z;
+    float t = (xmin - ix)/jx;
 
     // Case 1: both vertices inside. Second vertex only added to ClippedVertices
-    if(ix >= xmin && jy >= xmin) {
+    if(ix >= xmin && jx >= xmin) {
       clippedVertices.push_back(vertices[j]);
     }
 
     // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
-    if (ix <= xmin  && jy >= xmin) {
-
-      float t = (xmin - ix)/jx;
+    if (ix < xmin  && jx >= xmin) {
 
       Vertex intersect1;
       intersect1.position.x = xmin;
@@ -542,9 +542,7 @@ vector<Vertex> ClipPolygonLeft(vector<Vertex>& vertices) {
     }
 
     // // Case 3: When only second point is outside. Only point of intersection with edge is added
-    else if (iy <= ymax  && jy >= ymax) {
-
-      float t = (xmin - ix)/jx;
+    else if (ix >= xmin  && jx < xmin) {
 
       Vertex intersect2;
       intersect2.position.x = xmin;
@@ -573,19 +571,19 @@ vector<Vertex> ClipPolygonBottom(vector<Vertex>& vertices) {
     float jy = vertices[j].position.y;
     float jz = vertices[j].position.z;
 
+    float t = (ymax - iy)/jy;
+
     // Case 1: both vertices inside. Second vertex only added to ClippedVertices
-    if(iy >= ymin && jy >= ymin) {
+    if(iy <= ymax && jy <= ymax) {
       clippedVertices.push_back(vertices[j]);
     }
 
     // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
-    if (iy <= ymin  && jy >= ymin) {
-
-      float t = (ymin - iy)/jy;
+    if (iy > ymax  && jy <= ymax) {
 
       Vertex intersect1;
       intersect1.position.x = ix + t * jx;;
-      intersect1.position.y = ymin;
+      intersect1.position.y = ymax;
       intersect1.position.z = iz + t * jz;
 
       clippedVertices.push_back(intersect1);
@@ -593,13 +591,11 @@ vector<Vertex> ClipPolygonBottom(vector<Vertex>& vertices) {
     }
 
     // // Case 3: When only second point is outside. Only point of intersection with edge is added
-    else if (iy >= ymin  && jy <= ymin) {
-
-      float t = (ymin - iy)/jy;
+    else if (iy <= ymax  && jy > ymax) {
 
       Vertex intersect2;
       intersect2.position.x = ix + t * jx;
-      intersect2.position.y = ymin;
+      intersect2.position.y = ymax;
       intersect2.position.z = iz + t * jz;
 
       clippedVertices.push_back(intersect2);
@@ -623,15 +619,15 @@ vector<Vertex> ClipPolygonRight(vector<Vertex>& vertices) {
     float jy = vertices[j].position.y;
     float jz = vertices[j].position.z;
 
+    float t = (xmax - ix)/jx;
+
     // Case 1: both vertices inside. Second vertex only added to ClippedVertices
     if(ix <= xmax && jx <= xmax) {
       clippedVertices.push_back(vertices[j]);
     }
 
     // Case 2: first point outide the window, second inside. Point of intersection and the second point added to ClippedVertices
-    if (ix >= xmax  && jx <= xmax) {
-
-      float t = (xmax - ix)/jx;
+    if (ix > xmax  && jx <= xmax) {
 
       Vertex intersect1;
       intersect1.position.x = xmax;
@@ -643,9 +639,7 @@ vector<Vertex> ClipPolygonRight(vector<Vertex>& vertices) {
     }
 
     // // Case 3: When only second point is outside. Only point of intersection with edge is added
-    else if (ix <= xmax  && jx >= xmax) {
-
-      float t = (xmax - ix)/jx;
+    else if (ix <= xmax  && jx > xmax) {
 
       Vertex intersect2;
       intersect2.position.x = xmax;
