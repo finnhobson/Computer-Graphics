@@ -39,7 +39,7 @@ struct Car
   glm::vec4 movement;
 };
 
-void GenerateModel( std::vector<Triangle>& triangles );
+void GenerateModel( std::vector<Triangle>& triangles, int x, int y );
 void GenerateCars( std::vector<Car>& cars );
 void GenerateLights( std::vector<glm::vec4>& lights );
 
