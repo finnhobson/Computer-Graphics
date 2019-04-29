@@ -43,7 +43,7 @@ mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
 vec4 lightPos( 0, -2, -1, 1.0 );
-float intensity = 25.f;
+float intensity = 30.f;
 float red = 1.0f;
 float green = 1.0f;
 float blue = 1.0f;
@@ -54,7 +54,7 @@ vec3 currentColor;
 vec4 currentNormal;
 
 vector<vec2> stars(200);
-vector<Car> cars(1000);
+vector<Car> cars(1200);
 vector<vec4> lights;
 
 int currentCityX = 0;
@@ -118,7 +118,7 @@ void Draw(screen* screen)
   vec3 blue = vec3(0, 0, 0.2);
 
   for (int i = 0; i < SCREEN_WIDTH; i++) {
-    for (float j = 0; j < SCREEN_WIDTH*0.62f+cameraPos.z*5; j++) {
+    for (float j = 0; j < SCREEN_WIDTH*0.6f; j++) {
       PutPixelSDL(screen, i, j, blue*j*0.0025f);
     }
   }
@@ -222,7 +222,15 @@ bool Update()
     else if (cars[i].position.x > 5) cars[i].position.x -= 10;
   }
 
-  currentCityZ = int(cameraPos.z + 2)/2;
+  if (cameraPos.z * 0.5f > currentCityZ) {
+    currentCityZ++;
+    GenerateModel(triangles, 1, currentCityZ+2);
+    GenerateModel(triangles, 0, currentCityZ+2);
+    GenerateModel(triangles, -1, currentCityZ+2);
+    GenerateLights(lights, 1, currentCityZ+2);
+    GenerateLights(lights, 0, currentCityZ+2);
+    GenerateLights(lights, -1, currentCityZ+2);
+  }
 
   SDL_Event e;
   while(SDL_PollEvent(&e))
@@ -245,24 +253,24 @@ bool Update()
         case SDLK_DOWN:
           // Move camera backwards
           cameraPos.z -= 0.1f;
-          cameraPos.z -= 0.1f;
+          lightPos.z -= 0.1f;
           break;
         case SDLK_LEFT:
           // Move camera left
-          yAngle -= float(M_PI) * 0.02f;
+          yAngle -= float(M_PI) * 0.01f / cameraPos.z;
           UpdateRotation();
           for ( unsigned int i = 0; i < stars.size(); ++i )
           {
-            stars[i].x += float(M_PI) * 10;
+            stars[i].x += float(M_PI) * 5;
           }
           break;
         case SDLK_RIGHT:
           // Move camera right
-          yAngle += float(M_PI) * 0.02f;
+          yAngle += float(M_PI) * 0.01f / cameraPos.z;
           UpdateRotation();
           for ( unsigned int i = 0; i < stars.size(); ++i )
           {
-            stars[i].x -= float(M_PI) * 10;
+            stars[i].x -= float(M_PI) * 5;
           }
           break;
           case SDLK_w:
@@ -536,8 +544,8 @@ void GenerateCity() {
   triangles.clear();
   lights.clear();
 
-  for (int i = -2; i <= 2; i++) {
-    for (int j = -2; j <= 2; j++) {
+  for (int i = currentCityX-1; i <= currentCityX+1; i++) {
+    for (int j = currentCityZ-1; j <= currentCityZ+2; j++) {
       GenerateModel(triangles, i, j);
       GenerateLights(lights, i, j);
     }
