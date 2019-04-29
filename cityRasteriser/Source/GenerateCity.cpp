@@ -170,7 +170,7 @@ void GenerateModel( std::vector<Triangle>& triangles, int cityX, int cityZ )
 void GenerateCars( std::vector<Car>& cars ) {
 	for ( unsigned int i = 0; i < cars.size(); i++ ) {
     if (i < cars.size()*0.5f) {
-			int randX = (rand() % 21) * 750;
+			int randX = ((rand() % 28) -14) * 750;
 			int randZ = rand() % 10000;
 			cars[i].position = vec4(randX, 5, randZ, 0);
 			if (i < cars.size() * 0.25f) {
@@ -185,7 +185,7 @@ void GenerateCars( std::vector<Car>& cars ) {
 			}
 		}
 		else {
-			int randZ = (rand() % 21) * 750;
+			int randZ = ((rand() % 28) -14) * 750;
 			int randX = rand() % 10000;
 			cars[i].position = vec4(randX, 5, randZ, 0);
 			if (i < cars.size() * 0.75f) {
@@ -211,17 +211,19 @@ void GenerateCars( std::vector<Car>& cars ) {
 	}
 }
 
-void GenerateLights( std::vector<glm::vec4>& lights ) {
-	for (int i = -7; i < 14; i++) {
-		for (int j = 0; j < 150; j++ ) {
-				lights.push_back( vec4(i*750 + 20, 5, L/38 * j - L, 1) );
-				lights.push_back( vec4(i*750 + 130, 5, L/38 * j - L, 1) );
-				lights.push_back( vec4(L/40 * j - L, 5, i*750 + 20, 1) );
-				lights.push_back( vec4(L/40 * j - L, 5, i*750 + 130, 1) );
+void GenerateLights( std::vector<glm::vec4>& lights, int cityX, int cityZ ) {
+	int numLights = lights.size();
+
+	for (int i = 0; i < 7; i++) {
+		for (int j = 0; j < 35; j++ ) {
+				lights.push_back( vec4(i*750 + 20 + cityX*(L+250), 5, L/33 * j + cityZ*(L+250), 1) );
+				lights.push_back( vec4(i*750 + 130 + cityX*(L+250), 5, L/33 * j + cityZ*(L+250), 1) );
+				lights.push_back( vec4(L/33 * j + cityX*(L+250), 5, i*750 + 20 + cityZ*(L+250), 1) );
+				lights.push_back( vec4(L/33 * j + cityX*(L+250), 5, i*750 + 130 + cityZ*(L+250), 1) );
 		}
 	}
 
-	for( size_t i=0; i<lights.size(); ++i )
+	for( size_t i=numLights; i<lights.size(); ++i )
 	{
 		lights[i] *= 2/L;
 		lights[i] -= vec4(1,1,1,1);

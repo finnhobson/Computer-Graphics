@@ -42,8 +42,8 @@ vec4 cameraPos( 0, 0.5, -2.001, 1 );
 mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
-vec4 lightPos( 0, -0.8, -1, 1.0 );
-float intensity = 15.f;
+vec4 lightPos( 0, -2, -1, 1.0 );
+float intensity = 25.f;
 float red = 1.0f;
 float green = 1.0f;
 float blue = 1.0f;
@@ -54,7 +54,7 @@ vec3 currentColor;
 vec4 currentNormal;
 
 vector<vec2> stars(200);
-vector<Car> cars(600);
+vector<Car> cars(1000);
 vector<vec4> lights;
 
 int currentCityX = 0;
@@ -90,7 +90,6 @@ int main( int argc, char* argv[] )
 
   GenerateCity();
   GenerateCars(cars);
-  GenerateLights(lights);
 
   for ( unsigned int i = 0; i < stars.size(); i++ )
   {
@@ -119,7 +118,7 @@ void Draw(screen* screen)
   vec3 blue = vec3(0, 0, 0.2);
 
   for (int i = 0; i < SCREEN_WIDTH; i++) {
-    for (float j = 0; j < SCREEN_WIDTH*0.65f+cameraPos.z*5; j++) {
+    for (float j = 0; j < SCREEN_WIDTH*0.62f+cameraPos.z*5; j++) {
       PutPixelSDL(screen, i, j, blue*j*0.0025f);
     }
   }
@@ -135,7 +134,7 @@ void Draw(screen* screen)
     float uLight = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
     float vLight = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
     vec3 colour = 1.5f * vec3(0, 1, 1) / position.z;
-    if (position.z > 1 && position.z < 3 && uLight > 1 && uLight < SCREEN_WIDTH-1 && vLight > 1 && vLight < SCREEN_HEIGHT-1) {
+    if (position.z > 1 && position.z < 4 && uLight > 1 && uLight < SCREEN_WIDTH-1 && vLight > 1 && vLight < SCREEN_HEIGHT-1) {
       PutPixelSDL(screen, uLight, vLight, colour);
       PutPixelSDL(screen, uLight-1, vLight-1, colour*0.2f);
       PutPixelSDL(screen, uLight, vLight-1, colour*0.2f);
@@ -155,34 +154,17 @@ void Draw(screen* screen)
     float uCar = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
     float vCar = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
     vec3 colour = 0.6f * cars[i].colour / position.z;
-    if (position.z > 0 && uCar > 2 && uCar < SCREEN_WIDTH-2 && vCar > 2 && vCar < SCREEN_HEIGHT-2) {
+    if (position.z > 0 && position.z < 4 && uCar > 2 && uCar < SCREEN_WIDTH-2 && vCar > 2 && vCar < SCREEN_HEIGHT-2) {
         PutPixelSDL(screen, uCar, vCar, colour);
         //First ring of glow
-        PutPixelSDL(screen, uCar+1, vCar, colour*0.5f);
-        PutPixelSDL(screen, uCar, vCar+1, colour*0.5f);
-        PutPixelSDL(screen, uCar+1, vCar+1, colour*0.5f);
-        PutPixelSDL(screen, uCar-1, vCar, colour*0.5f);
-        PutPixelSDL(screen, uCar, vCar-1, colour*0.5f);
-        PutPixelSDL(screen, uCar-1, vCar-1, colour*0.5f);
-        PutPixelSDL(screen, uCar-1, vCar+1, colour*0.5f);
-        PutPixelSDL(screen, uCar+1, vCar-1, colour*0.5f);
-        //Second ring of glow
-        PutPixelSDL(screen, uCar+2, vCar-2, colour*0.2f);
-        PutPixelSDL(screen, uCar+2, vCar-1, colour*0.2f);
-        PutPixelSDL(screen, uCar+2, vCar, colour*0.2f);
-        PutPixelSDL(screen, uCar+2, vCar+1, colour*0.2f);
-        PutPixelSDL(screen, uCar+2, vCar+2, colour*0.2f);
-        PutPixelSDL(screen, uCar-2, vCar-2, colour*0.2f);
-        PutPixelSDL(screen, uCar-2, vCar-1, colour*0.2f);
-        PutPixelSDL(screen, uCar-2, vCar, colour*0.2f);
-        PutPixelSDL(screen, uCar-2, vCar+1, colour*0.2f);
-        PutPixelSDL(screen, uCar-2, vCar+2, colour*0.2f);
-        PutPixelSDL(screen, uCar-1, vCar-2, colour*0.2f);
-        PutPixelSDL(screen, uCar, vCar-2, colour*0.2f);
-        PutPixelSDL(screen, uCar+1, vCar-2, colour*0.2f);
-        PutPixelSDL(screen, uCar-1, vCar+2, colour*0.2f);
-        PutPixelSDL(screen, uCar, vCar+2, colour*0.2f);
-        PutPixelSDL(screen, uCar+1, vCar+2, colour*0.2f);
+        PutPixelSDL(screen, uCar+1, vCar, colour*0.4f);
+        PutPixelSDL(screen, uCar, vCar+1, colour*0.4f);
+        PutPixelSDL(screen, uCar+1, vCar+1, colour*0.4f);
+        PutPixelSDL(screen, uCar-1, vCar, colour*0.4f);
+        PutPixelSDL(screen, uCar, vCar-1, colour*0.4f);
+        PutPixelSDL(screen, uCar-1, vCar-1, colour*0.4f);
+        PutPixelSDL(screen, uCar-1, vCar+1, colour*0.4f);
+        PutPixelSDL(screen, uCar+1, vCar-1, colour*0.4f);
       }
   }
 
@@ -229,16 +211,18 @@ bool Update()
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
   t = t2;
-  //std::cout << "Render time: " << dt << " ms." << std::endl;
+  //std::cout << "Render time: " << dt << " ms." << std::endl;*/
 
   for ( unsigned int i = 0; i < cars.size(); ++i )
   {
     cars[i].position = cars[i].position + cars[i].movement * 0.005f;
-    if (cars[i].position.z < -3) cars[i].position.z += 6;
-    else if (cars[i].position.z > 3) cars[i].position.z -= 6;
-    if (cars[i].position.x < -3) cars[i].position.x += 6;
-    else if (cars[i].position.x > 3) cars[i].position.x -= 6;
+    if (cars[i].position.z < -5) cars[i].position.z += 10;
+    else if (cars[i].position.z > 5) cars[i].position.z -= 10;
+    if (cars[i].position.x < -5) cars[i].position.x += 10;
+    else if (cars[i].position.x > 5) cars[i].position.x -= 10;
   }
+
+  currentCityZ = int(cameraPos.z + 2)/2;
 
   SDL_Event e;
   while(SDL_PollEvent(&e))
@@ -255,11 +239,13 @@ bool Update()
           break;
         case SDLK_UP:
           // Move camera forward
-          cameraPos.z += 0.1;
+          cameraPos.z += 0.1f;
+          lightPos.z += 0.1f;
           break;
         case SDLK_DOWN:
           // Move camera backwards
-          cameraPos.z -= 0.1;
+          cameraPos.z -= 0.1f;
+          cameraPos.z -= 0.1f;
           break;
         case SDLK_LEFT:
           // Move camera left
@@ -548,13 +534,12 @@ void UpdateLightColour()
 
 void GenerateCity() {
   triangles.clear();
-  GenerateModel(triangles, currentCityX, currentCityZ);
-  GenerateModel(triangles, currentCityX+1, currentCityZ);
-  GenerateModel(triangles, currentCityX-1, currentCityZ);
-  GenerateModel(triangles, currentCityX-1, currentCityZ+1);
-  GenerateModel(triangles, currentCityX, currentCityZ+1);
-  GenerateModel(triangles, currentCityX+1, currentCityZ+1);
-  GenerateModel(triangles, currentCityX-1, currentCityZ-1);
-  GenerateModel(triangles, currentCityX, currentCityZ-1);
-  GenerateModel(triangles, currentCityX+1, currentCityZ-1);
+  lights.clear();
+
+  for (int i = -2; i <= 2; i++) {
+    for (int j = -2; j <= 2; j++) {
+      GenerateModel(triangles, i, j);
+      GenerateLights(lights, i, j);
+    }
+  }
 }
