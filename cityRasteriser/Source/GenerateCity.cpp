@@ -171,7 +171,7 @@ void GenerateCars( std::vector<Car>& cars ) {
 	for ( unsigned int i = 0; i < cars.size(); i++ ) {
     if (i < cars.size()*0.5f) {
 			int randX = ((rand() % 28) -14) * 750;
-			int randZ = rand() % 10000;
+			int randZ = rand() % 20000;
 			cars[i].position = vec4(randX, 5, randZ, 0);
 			if (i < cars.size() * 0.25f) {
 				cars[i].colour = vec3(3,3,3);
@@ -185,7 +185,7 @@ void GenerateCars( std::vector<Car>& cars ) {
 			}
 		}
 		else {
-			int randZ = ((rand() % 28) -14) * 750;
+			int randZ = (rand() % 21) * 750;
 			int randX = rand() % 10000;
 			cars[i].position = vec4(randX, 5, randZ, 0);
 			if (i < cars.size() * 0.75f) {

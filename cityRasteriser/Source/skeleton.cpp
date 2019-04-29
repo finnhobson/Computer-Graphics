@@ -43,7 +43,7 @@ mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
 vec4 lightPos( 0, -2, -1, 1.0 );
-float intensity = 30.f;
+float intensity = 18.f;
 float red = 1.0f;
 float green = 1.0f;
 float blue = 1.0f;
@@ -54,7 +54,7 @@ vec3 currentColor;
 vec4 currentNormal;
 
 vector<vec2> stars(200);
-vector<Car> cars(1200);
+vector<Car> cars(2000);
 vector<vec4> lights;
 
 int currentCityX = 0;
@@ -216,10 +216,10 @@ bool Update()
   for ( unsigned int i = 0; i < cars.size(); ++i )
   {
     cars[i].position = cars[i].position + cars[i].movement * 0.005f;
-    if (cars[i].position.z < -5) cars[i].position.z += 10;
-    else if (cars[i].position.z > 5) cars[i].position.z -= 10;
-    if (cars[i].position.x < -5) cars[i].position.x += 10;
-    else if (cars[i].position.x > 5) cars[i].position.x -= 10;
+    if (cars[i].position.z < -5) cars[i].position.z += 20;
+    else if (cars[i].position.z > 15) cars[i].position.z -= 20;
+    if (cars[i].position.x < -3) cars[i].position.x += 6;
+    else if (cars[i].position.x > 3) cars[i].position.x -= 6;
   }
 
   if (cameraPos.z * 0.5f > currentCityZ) {
@@ -257,7 +257,8 @@ bool Update()
           break;
         case SDLK_LEFT:
           // Move camera left
-          yAngle -= float(M_PI) * 0.01f / cameraPos.z;
+          if (cameraPos.z < 0) yAngle -= float(M_PI) * 0.02f;
+          else yAngle -= float(M_PI) * 0.01f / cameraPos.z;
           UpdateRotation();
           for ( unsigned int i = 0; i < stars.size(); ++i )
           {
@@ -266,7 +267,8 @@ bool Update()
           break;
         case SDLK_RIGHT:
           // Move camera right
-          yAngle += float(M_PI) * 0.01f / cameraPos.z;
+          if (cameraPos.z < 0) yAngle += float(M_PI) * 0.02f;
+          else yAngle += float(M_PI) * 0.01f / cameraPos.z;
           UpdateRotation();
           for ( unsigned int i = 0; i < stars.size(); ++i )
           {
@@ -491,6 +493,7 @@ void PixelShader(screen* screen, const Pixel& p )
            depthBuffer[y][x] = p.zinv;
            vec3 directLight = DirectLight(p);
            vec3 illumination = currentColor * (directLight + indirectLight);
+           if (p.zinv < 0.6) illumination *= (p.zinv * 1.5f);
            PutPixelSDL( screen, x, y, illumination );
        }
 }
