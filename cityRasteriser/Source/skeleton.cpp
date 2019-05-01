@@ -4,6 +4,7 @@
 #include "SDLauxiliary.h"
 #include "GenerateCity.h"
 #include <stdint.h>
+#include <omp.h>
 
 using namespace std;
 using glm::vec2;
@@ -23,6 +24,8 @@ struct Pixel
 {
   int x;
   int y;
+  int u;
+  int v;
   float zinv;
   vec4 pos3d;
 };
@@ -30,6 +33,7 @@ struct Pixel
 struct Vertex
 {
    vec4 position;
+   ivec2 texturePos;
 };
 
 /* ----------------------------------------------------------------------------*/
@@ -38,12 +42,12 @@ vector<Triangle> triangles;
 
 float depthBuffer[SCREEN_HEIGHT][SCREEN_WIDTH];
 
-vec4 cameraPos( 0, 0.5, -2.001, 1 );
+vec4 cameraPos( 0, 0.6, -2.001, 1 );
 mat4 yRotation = mat4(1.0f);
 float yAngle = 0;
 
 vec4 lightPos( 0, -2, -1, 1.0 );
-float intensity = 18.f;
+float intensity = 15.f;
 float red = 1.0f;
 float green = 1.0f;
 float blue = 1.0f;
@@ -59,6 +63,12 @@ vector<vec4> lights;
 
 int currentCityX = 0;
 int currentCityZ = 0;
+
+float maxCameraZ = 0.f;
+
+vec3 buildingTexture[512][512];
+SDL_Surface *textureSurface;
+bool textureOn = false;
 
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
@@ -82,6 +92,9 @@ void UpdateLightColour();
 bool ClipPolygon( vector<Vertex>& vertices );
 void DrawTriangle( screen* screen, Triangle& triangle );
 void GenerateCity();
+void GenerateStars();
+void GenerateTexture();
+glm::vec3 GetPixelSDL(SDL_Surface *surface, int x, int y);
 
 
 int main( int argc, char* argv[] )
@@ -89,13 +102,12 @@ int main( int argc, char* argv[] )
   screen *screen = InitializeSDL( SCREEN_WIDTH, SCREEN_HEIGHT, FULLSCREEN_MODE );
 
   GenerateCity();
-  GenerateCars(cars);
+  GenerateCars(cars, 0, 0);
+  GenerateStars();
+  GenerateTexture();
 
-  for ( unsigned int i = 0; i < stars.size(); i++ )
-  {
-    stars[i].x = (rand() % SCREEN_WIDTH * 6) - SCREEN_WIDTH * 3;
-    stars[i].y = rand() % SCREEN_HEIGHT * 0.6;
-  }
+  const char file[] = "window.bmp";
+  textureSurface = SDL_LoadBMP(file);
 
   while ( Update())
     {
@@ -127,53 +139,80 @@ void Draw(screen* screen)
     if (stars[i].x > 0 && stars[i].x < SCREEN_WIDTH && stars[i].y > 0 && stars[i].y < SCREEN_HEIGHT)
       PutPixelSDL(screen, stars[i].x, stars[i].y, vec3(1,1,1));
 
-  for ( unsigned int i = 0; i < lights.size(); ++i )
+  #pragma omp parallel
   {
-    vec4 position = yRotation * lights[i];
-    position = position - cameraPos;
-    float uLight = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
-    float vLight = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
-    vec3 colour = 1.5f * vec3(0, 1, 1) / position.z;
-    if (position.z > 1 && position.z < 4 && uLight > 1 && uLight < SCREEN_WIDTH-1 && vLight > 1 && vLight < SCREEN_HEIGHT-1) {
-      PutPixelSDL(screen, uLight, vLight, colour);
-      PutPixelSDL(screen, uLight-1, vLight-1, colour*0.2f);
-      PutPixelSDL(screen, uLight, vLight-1, colour*0.2f);
-      PutPixelSDL(screen, uLight-1, vLight, colour*0.2f);
-      PutPixelSDL(screen, uLight+1, vLight, colour*0.2f);
-      PutPixelSDL(screen, uLight, vLight+1, colour*0.2f);
-      PutPixelSDL(screen, uLight-1, vLight+1, colour*0.2f);
-      PutPixelSDL(screen, uLight+1, vLight-1, colour*0.2f);
-      PutPixelSDL(screen, uLight+1, vLight+1, colour*0.2f);
+    #pragma omp for nowait
+    for ( unsigned int i = 0; i < cars.size(); ++i )
+    {
+      vec4 position = yRotation * cars[i].position;
+      position = position - cameraPos;
+      float uCar = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
+      float vCar = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
+      vec3 colour = 0.5f * cars[i].colour / position.z;
+      if (position.z > 0 && position.z < 4 && uCar > 2 && uCar < SCREEN_WIDTH-2 && vCar > 2 && vCar < SCREEN_HEIGHT-2) {
+          PutPixelSDL(screen, uCar, vCar, colour);
+          //First ring of glow
+          PutPixelSDL(screen, uCar+1, vCar, colour*0.5f);
+          PutPixelSDL(screen, uCar, vCar+1, colour*0.5f);
+          PutPixelSDL(screen, uCar+1, vCar+1, colour*0.5f);
+          PutPixelSDL(screen, uCar-1, vCar, colour*0.5f);
+          PutPixelSDL(screen, uCar, vCar-1, colour*0.5f);
+          PutPixelSDL(screen, uCar-1, vCar-1, colour*0.5f);
+          PutPixelSDL(screen, uCar-1, vCar+1, colour*0.5f);
+          PutPixelSDL(screen, uCar+1, vCar-1, colour*0.5f);
+          //Second ring of glow
+          PutPixelSDL(screen, uCar+2, vCar-2, colour*0.25f);
+          PutPixelSDL(screen, uCar+2, vCar-1, colour*0.25f);
+          PutPixelSDL(screen, uCar+2, vCar, colour*0.25f);
+          PutPixelSDL(screen, uCar+2, vCar+1, colour*0.25f);
+          PutPixelSDL(screen, uCar+2, vCar+2, colour*0.25f);
+          PutPixelSDL(screen, uCar-2, vCar-2, colour*0.25f);
+          PutPixelSDL(screen, uCar-2, vCar-1, colour*0.25f);
+          PutPixelSDL(screen, uCar-2, vCar, colour*0.25f);
+          PutPixelSDL(screen, uCar-2, vCar+1, colour*0.25f);
+          PutPixelSDL(screen, uCar-2, vCar+2, colour*0.25f);
+          PutPixelSDL(screen, uCar-1, vCar-2, colour*0.25f);
+          PutPixelSDL(screen, uCar, vCar-2, colour*0.25f);
+          PutPixelSDL(screen, uCar+1, vCar-2, colour*0.25f);
+          PutPixelSDL(screen, uCar-1, vCar+2, colour*0.25f);
+          PutPixelSDL(screen, uCar, vCar+2, colour*0.25f);
+          PutPixelSDL(screen, uCar+1, vCar+2, colour*0.25f);
+        }
     }
   }
 
-  for ( unsigned int i = 0; i < cars.size(); ++i )
+  #pragma omp parallel
   {
-    vec4 position = yRotation * cars[i].position;
-    position = position - cameraPos;
-    float uCar = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
-    float vCar = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
-    vec3 colour = 0.6f * cars[i].colour / position.z;
-    if (position.z > 0 && position.z < 4 && uCar > 2 && uCar < SCREEN_WIDTH-2 && vCar > 2 && vCar < SCREEN_HEIGHT-2) {
-        PutPixelSDL(screen, uCar, vCar, colour);
-        //First ring of glow
-        PutPixelSDL(screen, uCar+1, vCar, colour*0.4f);
-        PutPixelSDL(screen, uCar, vCar+1, colour*0.4f);
-        PutPixelSDL(screen, uCar+1, vCar+1, colour*0.4f);
-        PutPixelSDL(screen, uCar-1, vCar, colour*0.4f);
-        PutPixelSDL(screen, uCar, vCar-1, colour*0.4f);
-        PutPixelSDL(screen, uCar-1, vCar-1, colour*0.4f);
-        PutPixelSDL(screen, uCar-1, vCar+1, colour*0.4f);
-        PutPixelSDL(screen, uCar+1, vCar-1, colour*0.4f);
+    #pragma omp for nowait
+    for ( unsigned int i = 0; i < lights.size(); ++i )
+    {
+      vec4 position = yRotation * lights[i];
+      position = position - cameraPos;
+      float uLight = SCREEN_HEIGHT * position.x/position.z + SCREEN_WIDTH/2;
+      float vLight = SCREEN_HEIGHT * position.y/position.z + SCREEN_HEIGHT/2;
+      vec3 colour = 1.5f * vec3(0, 1, 1) / position.z;
+      if (position.z > 0.1 && position.z < 5 && uLight > 1 && uLight < SCREEN_WIDTH-1 && vLight > 1 && vLight < SCREEN_HEIGHT-1) {
+        PutPixelSDL(screen, uLight, vLight, colour);
+        PutPixelSDL(screen, uLight-1, vLight-1, colour*0.2f);
+        PutPixelSDL(screen, uLight, vLight-1, colour*0.2f);
+        PutPixelSDL(screen, uLight-1, vLight, colour*0.2f);
+        PutPixelSDL(screen, uLight+1, vLight, colour*0.2f);
+        PutPixelSDL(screen, uLight, vLight+1, colour*0.2f);
+        PutPixelSDL(screen, uLight-1, vLight+1, colour*0.2f);
+        PutPixelSDL(screen, uLight+1, vLight-1, colour*0.2f);
+        PutPixelSDL(screen, uLight+1, vLight+1, colour*0.2f);
       }
+    }
   }
 
   for( int y=0; y<SCREEN_HEIGHT; ++y )
     for( int x=0; x<SCREEN_WIDTH; ++x )
       depthBuffer[y][x] = 0;
 
-  for( uint32_t i=0; i<triangles.size(); ++i ) DrawTriangle( screen, triangles[i] );
+  //#pragma omp parallel for private(currentColor)
+    for( uint32_t i=0; i<triangles.size(); ++i ) DrawTriangle( screen, triangles[i] );
 }
+
 
 void DrawTriangle( screen* screen, Triangle& triangle ) {
   currentColor = triangle.color;
@@ -185,6 +224,10 @@ void DrawTriangle( screen* screen, Triangle& triangle ) {
   vertices[0].position = triangle.v0;
   vertices[1].position = triangle.v1;
   vertices[2].position = triangle.v2;
+
+  vertices[0].texturePos = triangle.t0;
+  vertices[1].texturePos = triangle.t1;
+  vertices[2].texturePos = triangle.t2;
 
   vertexPixels[0].pos3d = triangle.v0;
   vertexPixels[1].pos3d = triangle.v1;
@@ -211,25 +254,26 @@ bool Update()
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
   t = t2;
-  //std::cout << "Render time: " << dt << " ms." << std::endl;*/
+  std::cout << "Render time: " << dt << " ms." << std::endl;*/
 
   for ( unsigned int i = 0; i < cars.size(); ++i )
   {
     cars[i].position = cars[i].position + cars[i].movement * 0.005f;
     if (cars[i].position.z < -5) cars[i].position.z += 20;
-    else if (cars[i].position.z > 15) cars[i].position.z -= 20;
+    //else if (cars[i].position.z > 15) cars[i].position.z -= 20;
     if (cars[i].position.x < -3) cars[i].position.x += 6;
     else if (cars[i].position.x > 3) cars[i].position.x -= 6;
   }
 
   if (cameraPos.z * 0.5f > currentCityZ) {
     currentCityZ++;
-    GenerateModel(triangles, 1, currentCityZ+2);
-    GenerateModel(triangles, 0, currentCityZ+2);
-    GenerateModel(triangles, -1, currentCityZ+2);
-    GenerateLights(lights, 1, currentCityZ+2);
-    GenerateLights(lights, 0, currentCityZ+2);
-    GenerateLights(lights, -1, currentCityZ+2);
+    GenerateModel(triangles, currentCityX+1, currentCityZ+2);
+    GenerateModel(triangles, currentCityX, currentCityZ+2);
+    GenerateModel(triangles, currentCityX-1, currentCityZ+2);
+    GenerateLights(lights, currentCityX+1, currentCityZ+2);
+    GenerateLights(lights, currentCityX, currentCityZ+2);
+    GenerateLights(lights, currentCityX-1, currentCityZ+2);
+    GenerateCars(cars, 0, currentCityZ-2);
   }
 
   SDL_Event e;
@@ -243,36 +287,56 @@ bool Update()
       {
         case SDLK_SPACE:
           GenerateCity();
-          GenerateCars(cars);
+          GenerateCars(cars, 0, currentCityZ);
+          GenerateStars();
           break;
+        case SDLK_RETURN:
+          textureOn = !textureOn;
         case SDLK_UP:
           // Move camera forward
           cameraPos.z += 0.1f;
           lightPos.z += 0.1f;
+          for ( unsigned int i = 0; i < stars.size(); ++i )
+          {
+            stars[i].y -= 0.1f;
+            if (stars[i].y <= 0) stars[i].y += SCREEN_HEIGHT * 0.6;
+          }
           break;
         case SDLK_DOWN:
           // Move camera backwards
-          cameraPos.z -= 0.1f;
-          lightPos.z -= 0.1f;
+          if (cameraPos.z > maxCameraZ - 2) {
+            cameraPos.z -= 0.1f;
+            lightPos.z -= 0.1f;
+            if (cameraPos.z > maxCameraZ) maxCameraZ = cameraPos.z;
+            for ( unsigned int i = 0; i < stars.size(); ++i )
+            {
+              stars[i].y += 0.05f;
+              if (stars[i].y <= 0) stars[i].y += SCREEN_HEIGHT * 0.5;
+            }
+          }
           break;
         case SDLK_LEFT:
           // Move camera left
-          if (cameraPos.z < 0) yAngle -= float(M_PI) * 0.02f;
-          else yAngle -= float(M_PI) * 0.01f / cameraPos.z;
-          UpdateRotation();
-          for ( unsigned int i = 0; i < stars.size(); ++i )
-          {
-            stars[i].x += float(M_PI) * 5;
+          if (cameraPos.x > -2) {
+            cameraPos.x -= 0.1f;
+            lightPos.x -= 0.1f;
+            /*if (cameraPos.z < 1) yAngle -= float(M_PI) * 0.02f;
+            else yAngle -= float(M_PI) * 0.01f / cameraPos.z;
+            UpdateRotation();*/
+            for ( unsigned int i = 0; i < stars.size(); ++i )
+              stars[i].x += float(M_PI) * 0.5f;
           }
           break;
         case SDLK_RIGHT:
           // Move camera right
-          if (cameraPos.z < 0) yAngle += float(M_PI) * 0.02f;
-          else yAngle += float(M_PI) * 0.01f / cameraPos.z;
-          UpdateRotation();
-          for ( unsigned int i = 0; i < stars.size(); ++i )
-          {
-            stars[i].x -= float(M_PI) * 5;
+          if (cameraPos.x < 2) {
+            cameraPos.x += 0.1f;
+            lightPos.x += 0.1f;
+            /*if (cameraPos.z < 1) yAngle += float(M_PI) * 0.02f;
+            else yAngle += float(M_PI) * 0.01f / cameraPos.z;
+            UpdateRotation();*/
+            for ( unsigned int i = 0; i < stars.size(); ++i )
+              stars[i].x -= float(M_PI) * 0.5f;
           }
           break;
           case SDLK_w:
@@ -356,8 +420,12 @@ void VertexShader( const Vertex& v, Pixel& p ) {
   p.y = (SCREEN_HEIGHT * P.y / P.z) + (SCREEN_HEIGHT * 0.5f);
   p.zinv = 1.0f / P.z;
 
+  p.u = v.texturePos.x;
+  p.v = v.texturePos.y;
+
   p.pos3d = p.pos3d * p.zinv;
 }
+
 
 vec3 DirectLight( const Pixel& p )
 {
@@ -382,13 +450,17 @@ void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result )
   int N = result.size();
   vec3 vecA(a.x, a.y, a.zinv);
   vec3 vecB(b.x, b.y, b.zinv);
+  vec2 textureA(a.u, a.v);
+  vec2 textureB(b.u, b.v);
   vector<vec3> vecResult( N );
 
   vec3 step = (vecB - vecA) / float(max(N-1,1));
   vec4 posStep = (b.pos3d - a.pos3d) / float(max(N-1,1));
+  vec2 textureStep = (textureB - textureA) / float(max(N-1,1));
 
   vec3 current( vecA );
   vec4 currentPos( a.pos3d );
+  ivec2 currentTexture( textureA );
   for( int i=0; i<N; ++i )
   {
     vecResult[i] = current;
@@ -396,8 +468,11 @@ void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result )
     result[i].y = round(vecResult[i].y);
     result[i].zinv = vecResult[i].z;
     result[i].pos3d = currentPos;
+    result[i].u = currentTexture.x;
+    result[i].v = currentTexture.y;
     current += step;
     currentPos += posStep;
+    currentTexture += textureStep;
   }
 }
 
@@ -459,11 +534,15 @@ void ComputePolygonRows( const vector<Pixel>& vertexPixels,
       leftPixels[row].x = edgePixels[i].x;
       leftPixels[row].zinv = edgePixels[i].zinv;
       leftPixels[row].pos3d = edgePixels[i].pos3d;
+      leftPixels[row].u = edgePixels[i].u;
+      leftPixels[row].v = edgePixels[i].v;
     }
     if (edgePixels[i].x > rightPixels[row].x) {
       rightPixels[row].x = edgePixels[i].x;
       rightPixels[row].zinv = edgePixels[i].zinv;
       rightPixels[row].pos3d = edgePixels[i].pos3d;
+      rightPixels[row].u = edgePixels[i].u;
+      rightPixels[row].v = edgePixels[i].v;
     }
   }
 }
@@ -478,11 +557,10 @@ void DrawRows( screen* screen, const vector<Pixel>& leftPixels,
     vector<Pixel> row(pixels);
     InterpolatePixel( leftPixels[i], rightPixels[i], row );
     for ( int j = 0; j < pixels; j++ ) {
-      // printf("%lf\n", row[j].zinv);
       PixelShader(screen, row[j]);
-      }
     }
   }
+}
 
 void PixelShader(screen* screen, const Pixel& p )
    {
@@ -492,8 +570,11 @@ void PixelShader(screen* screen, const Pixel& p )
        {
            depthBuffer[y][x] = p.zinv;
            vec3 directLight = DirectLight(p);
+           //currentColor = buildingTexture[p.u][p.v];
+           if (textureOn) currentColor = GetPixelSDL(textureSurface, p.u, p.v);
+           //printf("%d, %d\n", p.u, p.v);
            vec3 illumination = currentColor * (directLight + indirectLight);
-           if (p.zinv < 0.6) illumination *= (p.zinv * 1.5f);
+           if (p.zinv < 0.7) illumination *= (p.zinv * 1.5f);
            PutPixelSDL( screen, x, y, illumination );
        }
 }
@@ -548,9 +629,31 @@ void GenerateCity() {
   lights.clear();
 
   for (int i = currentCityX-1; i <= currentCityX+1; i++) {
-    for (int j = currentCityZ-1; j <= currentCityZ+2; j++) {
+    for (int j = currentCityZ-2; j <= currentCityZ+2; j++) {
       GenerateModel(triangles, i, j);
       GenerateLights(lights, i, j);
+    }
+  }
+}
+
+void GenerateStars() {
+  for ( unsigned int i = 0; i < stars.size(); i++ )
+  {
+    stars[i].x = (rand() % SCREEN_WIDTH * 6) - SCREEN_WIDTH * 3;
+    stars[i].y = rand() % SCREEN_HEIGHT * 0.5;
+  }
+}
+
+void GenerateTexture() {
+  for (int x = 0; x < 64; x++) {
+    for (int y = 0; y < 64; y++) {
+      double colour = (double) rand() / (RAND_MAX);
+      for (int i = 1; i < 7; i++) {
+        for (int j = 1; j < 7; j++) {
+          buildingTexture[x+i][y+j] = vec3(colour, colour, colour);
+          //printf("(%lf, %lf, %lf),", buildingTexture[i][j].x, buildingTexture[i][j].y, buildingTexture[i][j].z);
+        }
+      }
     }
   }
 }

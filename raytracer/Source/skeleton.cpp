@@ -5,6 +5,7 @@
 #include "TestModelH.h"
 #include <stdint.h>
 #include <math.h>
+#include <omp.h>
 
 using namespace std;
 using glm::vec3;
@@ -60,6 +61,9 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel(triangles);
 
+  int NUM_THREADS = omp_get_max_threads();
+  omp_set_num_threads(NUM_THREADS);
+
   while( Update() )
     {
       Draw(screen, triangles);
@@ -81,34 +85,39 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
   // Clear buffer
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  for (int x = 0; x < SCREEN_WIDTH; x++) {
-    for (int y = 0; y < SCREEN_HEIGHT; y++) {
-      vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
-      if (ClosestIntersection(cameraPos, dir, triangles, intersection))
-      {
-        // SINGLE COLOURS
-        int index = intersection.triangleIndex;
-        vec3 trueColor = triangles[index].color;
+  #pragma omp parallel
+  {
+    #pragma omp for nowait collapse(2) private(intersection)
+    for (int x = 0; x < SCREEN_WIDTH; x++) {
+      for (int y = 0; y < SCREEN_HEIGHT; y++) {
+        vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
+        if (ClosestIntersection(cameraPos, dir, triangles, intersection))
+        {
+          // SINGLE COLOURS
+          int index = intersection.triangleIndex;
+          vec3 trueColor = triangles[index].color;
 
-        // DIRECT LIGHTING
-        vec3 directLight = DirectLight(intersection, triangles);
-        vec3 color = trueColor * (directLight + indirectLight);
+          // DIRECT LIGHTING
+          vec3 directLight = DirectLight(intersection, triangles);
+          vec3 color = trueColor * (directLight + indirectLight);
 
-        PutPixelSDL(screen, x, y, color);
+          PutPixelSDL(screen, x, y, color);
+        }
       }
     }
   }
 }
 
+
 // Updates parameters
 bool Update()
 {
   // Compute frame time
-  /*static int t = SDL_GetTicks();
+  static int t = SDL_GetTicks();
   int t2 = SDL_GetTicks();
   float dt = float(t2-t);
   t = t2;
-  std::cout << "Render time: " << dt << " ms." << std::endl;*/
+  std::cout << "Render time: " << dt << " ms." << std::endl;
 
   /* Update variables*/
   SDL_Event e;
@@ -306,5 +315,5 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
 void UpdateLightColour()
 {
   lightColor = intensity * vec3(red, green, blue);
-  indirectLight = intensity/28.0f * vec3(red, green, blue); 
+  indirectLight = intensity/28.0f * vec3(red, green, blue);
 }
