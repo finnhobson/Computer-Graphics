@@ -20,13 +20,6 @@ SDL_Event event;
 #define SCREEN_HEIGHT 500
 #define FULLSCREEN_MODE false
 
-/* ----------------------------------------- */
-/*  if(y > ymax) vertices[i].outcode[3] = 1; */
-/*  if(y < ymin) vertices[i].outcode[2] = 1; */
-/*  if(x > xmax) vertices[i].outcode[1] = 1; */
-/*  if(x < xmin) vertices[i].outcode[0] = 1; */
-/* ----------------------------------------- */
-
 struct Pixel
 {
   int x;
@@ -62,14 +55,6 @@ vec3 indirectLight = 0.5f * vec3(red, green, blue);
 vec3 currentColor;
 vec4 currentNormal;
 
-float umax = SCREEN_WIDTH/2;
-float vmax = SCREEN_HEIGHT/2;
-
-bitset<4> TOP("1000");
-bitset<4> LEFT("0001");
-bitset<4> BOTTOM("0100");
-bitset<4> RIGHT("0010");
-
 
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
@@ -90,14 +75,8 @@ void InterpolatePixel( Pixel a, Pixel b, vector<Pixel>& result );
 vec3 DirectLight( const Vertex & v );
 vector<Pixel> InterpolateLine( Pixel a, Pixel b );
 void UpdateLightColour();
-bool CullPolygon( vector<Vertex>& vertices );
-void CalculateOutcode(vector<Vertex>& vertices);
-void CalculateOutcodeVertex(Vertex v);
-Vertex ClipPolygonTop(Vertex i, Vertex j);
-Vertex ClipPolygonLeft(Vertex i, Vertex j);
-Vertex ClipPolygonBottom(Vertex i, Vertex j);
-Vertex ClipPolygonRight(Vertex i, Vertex j);
-// vector<Vertex> Clip(vector<Vertex>& vertices);
+int ClipPolygon( vector<Vertex>& vertices, vector<Vertex>& inVertices );
+
 
 int main( int argc, char* argv[] )
 {
@@ -133,15 +112,10 @@ void Draw(screen* screen)
     currentNormal = triangles[i].normal;
 
     vector<Vertex> vertices(3);
-    vector<Pixel> vertexPixels(3);
 
     vertices[0].position = triangles[i].v0;
-    vertexPixels[0].pos3d = triangles[i].v0;
     vertices[1].position = triangles[i].v1;
-    vertexPixels[1].pos3d = triangles[i].v1;
     vertices[2].position = triangles[i].v2;
-    vertexPixels[2].pos3d = triangles[i].v2;
-
 
     for (int v = 0; v < 3; v++ ) {
       //Rotate and Translate Vertex
@@ -150,122 +124,16 @@ void Draw(screen* screen)
       vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
     }
 
-    CalculateOutcode(vertices);
-    vector<Vertex> InVertices;
+    vector<Vertex> inVertices(3);
+    vector<Pixel> inPixels(3);
+    int inView = ClipPolygon( vertices, inVertices );
 
-    for(int x = 0; x < vertices.size(); x++) {
-      int V = vertices.size();
-      int y = (x+1)%V;
-      bitset<4> OutcodeNew;
-      OutcodeNew = vertices[x].outcode | vertices[y].outcode;
-      // std::cout << "New outcode:" << OutcodeNew << '\n';
-      // std::cout << "vertexNew:" << vertexNew;
-      //Check if both vertices are ON screen
-      if(OutcodeNew == 0) {
-        InVertices.push_back(vertices[y]);
-      }
-      //Check if both vertices are OFF screen
-      // else if((vertices[x].outcode & vertices[y].outcode) != 0) {
-      //
-      // }
-      else {
-        //Check for clipping against TOP plane
-        if((OutcodeNew & TOP) != 0) {
-          std::cout << "TOP PLANE" << '\n';
-          //Case 1: first vertex outside whilst second inside
-          if((vertices[x].outcode & TOP) != 0) {
-            vertices[x] = ClipPolygonTop(vertices[x], vertices[y]);
-            CalculateOutcodeVertex(vertices[x]);
-            std::cout << "Outcode X New:" << vertices[x].outcode << '\n';
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[x]);
-              InVertices.push_back(vertices[y]);
-            }
-          }
-          //Case 2: first vertex innide whilst second outside
-          if((vertices[y].outcode & TOP) != 0) {
-            std::cout << "Outcode:" << vertices[y].outcode << '\n';
-            vertices[y] = ClipPolygonTop(vertices[y], vertices[x]);
-            std::cout << "HERE 2" << '\n';
-            std::cout << "Outcode X New:" << vertices[x].outcode << '\n';
-            // std::cout << "X pos:" << vertices[y].position.y << '\n';
-            CalculateOutcodeVertex(vertices[y]);
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[y]);
-            }
-          }
-        }/*
-        //Check for clipping against LEFT plane
-        if((OutcodeNew & LEFT) != 0) {
-          std::cout << "LEFT PLANE" << '\n';
-          //Case 1: first vertex outside whilst second inside
-          if((vertices[x].outcode & LEFT) != 0) {
-            vertices[x] = ClipPolygonLeft(vertices[x], vertices[y]);
-            CalculateOutcodeVertex(vertices[x]);
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[x]);
-              InVertices.push_back(vertices[y]);
-            }
-          }
-          //Case 2: first vertex isnide whilst second outside
-          if((vertices[y].outcode & LEFT) != 0) {
-            vertices[y] = ClipPolygonLeft(vertices[y], vertices[x]);
-            CalculateOutcodeVertex(vertices[y]);
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[y]);
-            }
-          }
-        }
-        //Check for clipping against BOTTOM plane
-        if((OutcodeNew & BOTTOM) != 0) {
-          std::cout << "BOTTOM PLANE" << '\n';
-          //Case 1: first vertex outside whilst second inside
-          if((vertices[x].outcode & BOTTOM) != 0) {
-            vertices[x] = ClipPolygonBottom(vertices[x], vertices[y]);
-            CalculateOutcodeVertex(vertices[x]);
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[x]);
-              InVertices.push_back(vertices[y]);
-            }
-          }
-          //Case 2: first vertex isnide whilst second outside
-          else {
-            vertices[y] = ClipPolygonBottom(vertices[x], vertices[y]);
-            CalculateOutcodeVertex(vertices[y]);
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[y]);
-            }
-          }
-        }
-        //Check for clipping against RIGHT plane
-        if((OutcodeNew & RIGHT) != 0) {
-          std::cout << "RIGHT PLANE" << '\n';
-          //Case 1: first vertex outside whilst second inside
-          if((vertices[x].outcode & RIGHT) != 0) {
-            vertices[x] = ClipPolygonRight(vertices[x], vertices[y]);
-            CalculateOutcodeVertex(vertices[x]);
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[x]);
-              InVertices.push_back(vertices[y]);
-            }
-          }
-          //Case 2: first vertex isnide whilst second outside
-          else {
-            vertices[y] = ClipPolygonRight(vertices[x], vertices[y]);
-            CalculateOutcodeVertex(vertices[y]);
-            if((vertices[x].outcode | vertices[y].outcode) == 0) {
-              InVertices.push_back(vertices[y]);
-            }
-          }
-        }*/
-      }
+    for (int v = 0; v < inView; v++ ) {
+      inVertices[v].position.w = 1;
+      inPixels[v].pos3d = glm::inverse(yRotation) * (inVertices[v].position + cameraPos);
     }
-    std::cout << "Number of vertices:" << InVertices.size() << '\n';
 
-    bool inView = CullPolygon( InVertices );
-
-    for (int v = 0; v < 3; v++ ) vertices[v].position.w = 1;
-    if (inView) DrawPolygon( screen, InVertices, vertexPixels );
+    if (inView == 3) DrawPolygon( screen, inVertices, inPixels );
   }
 }
 
@@ -543,28 +411,11 @@ void DrawPolygon( screen* screen, const vector<Vertex>& vertices, vector<Pixel>&
 }
 
 
+int ClipPolygon( vector<Vertex>& vertices, vector<Vertex>& inVertices ) {
+  int inView = 0;
+  float umax = SCREEN_WIDTH/2;
+  float vmax = SCREEN_HEIGHT/2;
 
-bool CullPolygon( vector<Vertex>& vertices ) {
-  bool inView = false;
-  //FIND CORRECT ZMIN!!
-  float zmin = -3.001;
-
-  for (uint32_t i = 0; i < vertices.size(); i++ ){
-    bool vertexInView = true;
-    // float xmax = umax *  vertices[i].position.w;
-    // float xmin = -xmax;
-    // float ymax = vmax * vertices[i].position.w;
-    // float ymin = -ymax;
-    // float x = vertices[i].position.x;
-    // float y = vertices[i].position.y;
-    float z = vertices[i].position.z;
-    if ( /*x > xmax || x < xmin || y > ymax || y < ymin ||*/ z < zmin ) vertexInView = false;
-    inView = inView || vertexInView;
-  }
-  return inView;
-}
-
-void CalculateOutcode(vector<Vertex>& vertices) {
   for (uint32_t i = 0; i < vertices.size(); i++ ){
     float xmax = umax *  vertices[i].position.w;
     float xmin = -xmax;
@@ -572,141 +423,25 @@ void CalculateOutcode(vector<Vertex>& vertices) {
     float ymin = -ymax;
     float x = vertices[i].position.x;
     float y = vertices[i].position.y;
-    if(y < ymin) vertices[i].outcode[3] = 1;
-    if(y > ymax) vertices[i].outcode[2] = 1;
-    if(x > xmax) vertices[i].outcode[1] = 1;
-    if(x < xmin) vertices[i].outcode[0] = 1;
-
-      // std::cout << "X pos:" << x << '\n';
-      // std::cout << "Y pos:" << y << '\n';
-      //
-      // std::cout << "Xmax:" << xmax << '\n';
-      // std::cout << "Xmin:" << xmin << '\n';
-      // std::cout << "Ymax:" << ymax << '\n';
-      // std::cout << "Ymin:" << ymin << '\n';
-      //
-      //
-      // std::cout << "Outcode:" << vertices[i].outcode << '\n';
+    //float z = vertices[i].position.z;
+    if (y < ymin) vertices[i].outcode[3] = 1;
+    if (y > ymax) vertices[i].outcode[2] = 1;
+    if (x > xmax) vertices[i].outcode[1] = 1;
+    if (x < xmin) vertices[i].outcode[0] = 1;
   }
+
+  for (uint32_t i = 0; i < vertices.size(); i++ ) {
+    int j = (i+1)%vertices.size();
+    if ( (vertices[i].outcode | vertices[j].outcode) == 0 ) {
+      inVertices[i] = vertices[i];
+      inView++;
+    }
+
+  }
+
+  return inView;
 }
 
-void CalculateOutcodeVertex(Vertex v) {
-  float xmax = umax *  v.position.w;
-  float xmin = -xmax;
-  float ymax = vmax * v.position.w;
-  float ymin = -ymax;
-  float x = v.position.x;
-  float y = v.position.y;
-  if(y < ymin) v.outcode[3] = 1;
-  if(y > ymax) v.outcode[2] = 1;
-  if(x > xmax) v.outcode[1] = 1;
-  if(x < xmin) v.outcode[0] = 1;
-}
-
-Vertex ClipPolygonTop(Vertex i, Vertex j) {
-
-  float xmax = umax * i.position.w;
-  float xmin = -xmax;
-  float ymax = vmax * i.position.w;
-  float ymin = -ymax;
-  float ix = i.position.x;
-  float iy = i.position.y;
-  float iz = i.position.z;
-  float jx = j.position.x;
-  float jy = j.position.y;
-  float jz = j.position.z;
-  float t = (ymin - iy)/(jy - iy);
-
-  std::cout << "Xmax:" << xmax << '\n';
-  std::cout << "Xmin:" << xmin << '\n';
-
-  std::cout << "Ymax:" << ymax << '\n';
-  std::cout << "Ymin:" << ymin << '\n';
-
-  std::cout << "IX:" << ix << '\n';
-  std::cout << "IY:" << iy << '\n';
-  std::cout << "IZ:" << iz << '\n';
-
-
-  std::cout << "JX:" << jx << '\n';
-  std::cout << "JY:" << jy << '\n';
-  std::cout << "JZ:" << jz << '\n';
-
-
-  std::cout << "T:" << t << '\n';
-
-
-  Vertex intersect;
-
-
-  intersect.position.x = ix + t * (jx - ix);
-  intersect.position.y = ymin;
-  intersect.position.z = iz + t * (jz - iz);
-  std::cout << "Intersect X position:" << intersect.position.x << '\n';
-  std::cout << "Intersect y position:" << intersect.position.y << '\n';
-  std::cout << "Intersect z position:" << intersect.position.z << '\n';
-
-
-
-  return intersect;
-}
-
-Vertex ClipPolygonLeft(Vertex i, Vertex j) {
-
-  float xmax = umax *  i.position.w;
-  float xmin = -xmax;
-  float ix = i.position.x;
-  float iy = i.position.y;
-  float iz = i.position.z;
-  float jx = j.position.x;
-  float jy = j.position.y;
-  float jz = j.position.z;
-  float t = (xmin - ix)/(jx - ix);
-
-  Vertex intersect;
-  intersect.position.x = xmin;
-  intersect.position.y = iy + t * (jy - iy);
-  intersect.position.z = iz + t * (jz - iz);
-
-  return intersect;
-}
-
-Vertex ClipPolygonBottom(Vertex i, Vertex j) {
-
-    float ymax = vmax * i.position.w;
-    float ix = i.position.x;
-    float iy = i.position.y;
-    float iz = i.position.z;
-    float jx = j.position.x;
-    float jy = j.position.y;
-    float jz = j.position.z;
-    float t = (ymax - iy)/(jy - iy);
-
-    Vertex intersect;
-    intersect.position.x = ix + t * (jx - ix);
-    intersect.position.y = ymax;
-    intersect.position.z = iz + t * (jz - iz);
-
-    return intersect;
-}
-
-Vertex ClipPolygonRight(Vertex i, Vertex j) {
-  float xmax = umax *  i.position.w;
-  float ix = i.position.x;
-  float iy = i.position.y;
-  float iz = i.position.z;
-  float jx = j.position.x;
-  float jy = j.position.y;
-  float jz = j.position.z;
-  float t = (xmax - ix)/(jx - ix);
-
-  Vertex intersect;
-  intersect.position.x = xmax;
-  intersect.position.y = iy + t * (jy - iy);
-  intersect.position.z = iz + t * (jz - iz);
-
-  return intersect;
-}
 
 void UpdateLightColour()
 {
