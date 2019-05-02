@@ -15,8 +15,8 @@ using glm::mat4;
 
 SDL_Event event;
 
-#define SCREEN_WIDTH 600
-#define SCREEN_HEIGHT 600
+#define SCREEN_WIDTH 300
+#define SCREEN_HEIGHT 300
 #define FULLSCREEN_MODE false
 #define _USE_MATH_DEFINES
 
@@ -90,18 +90,23 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
   //   #pragma omp for nowait collapse(2) private(intersection)
     for (int x = 0; x < SCREEN_WIDTH; x++) {
       for (int y = 0; y < SCREEN_HEIGHT; y++) {
-        vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
-        if (ClosestIntersection(cameraPos, dir, triangles, intersection))
-        {
-          // SINGLE COLOURS
-          int index = intersection.triangleIndex;
-          vec3 trueColor = triangles[index].color;
+        vec3 color(0.0f);
+        for (float i = -0.008; i <= 0.008; i+=0.004) {
+          for (float j = -0.008; j <= 0.008; j+=0.004) {
+            vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
+            if (ClosestIntersection(cameraPos + vec4(i,j,0,0), dir, triangles, intersection))
+            {
+              // SINGLE COLOURS
+              int index = intersection.triangleIndex;
+              vec3 trueColor = triangles[index].color;
 
-          // DIRECT LIGHTING
-          vec3 directLight = DirectLight(intersection, triangles);
-          vec3 color = trueColor * (directLight + indirectLight);
+              // DIRECT LIGHTING
+              vec3 directLight = DirectLight(intersection, triangles);
+              color += trueColor * (directLight + indirectLight);
 
-          PutPixelSDL(screen, x, y, color);
+              PutPixelSDL(screen, x, y, color / 20.0f);
+            }
+          }
         }
       }
     }
@@ -293,10 +298,10 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
   vec4 normal = triangles[index].normal;
   vec3 D = vec3(0,0,0);
 
-  for (float x = -0.1; x <= 0.1; x+=0.05) {
-    for (float y = -0.1; y <= 0.1; y+=0.05) {
+  for (float y = -0.05; y <= 0.05; y+=0.025f) {
+    for (float x = -0.05; x <= 0.05; x+=0.025f) {
       // Vector from intersection point to light source
-      vec4 lightDir = vec4((lightPos.x +x ) - position.x, lightPos.y - position.y, (lightPos.z +y) - position.z, position.w);
+      vec4 lightDir = vec4((lightPos.x + x ) - position.x, lightPos.y  - position.y, (lightPos.z + y) - position.z , position.w);
       vec4 unitLightDir = glm::normalize(lightDir);
 
       float projection = glm::dot(unitLightDir, normal);
@@ -313,7 +318,7 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
       }
     }
   }
-  return D/80.0f;
+  return D/50.0f;
 }
 
 
