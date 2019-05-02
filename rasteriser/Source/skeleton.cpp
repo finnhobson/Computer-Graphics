@@ -55,6 +55,9 @@ vec3 indirectLight = 0.5f * vec3(red, green, blue);
 vec3 currentColor;
 vec4 currentNormal;
 
+float umax = SCREEN_WIDTH/2;
+float vmax = SCREEN_HEIGHT/2;
+
 
 /* ---------------------------------------------------------------------------- */
 /* FUNCTIONS                                                                    */
@@ -76,6 +79,11 @@ vec3 DirectLight( const Vertex & v );
 vector<Pixel> InterpolateLine( Pixel a, Pixel b );
 void UpdateLightColour();
 int ClipPolygon( vector<Vertex>& vertices, vector<Vertex>& inVertices );
+void CalculateOutcode( Vertex& v );
+Vertex ClipPolygonLeft(Vertex i, Vertex j);
+Vertex ClipPolygonRight(Vertex i, Vertex j);
+Vertex ClipPolygonBottom(Vertex i, Vertex j);
+Vertex ClipPolygonTop(Vertex i, Vertex j);
 
 
 int main( int argc, char* argv[] )
@@ -124,16 +132,98 @@ void Draw(screen* screen)
       vertices[v].position.w = vertices[v].position.z / SCREEN_HEIGHT;
     }
 
-    vector<Vertex> inVertices(3);
-    vector<Pixel> inPixels(3);
+    vector<Vertex> inVertices;
     int inView = ClipPolygon( vertices, inVertices );
 
+    vector<Pixel> inPixels(inView);
     for (int v = 0; v < inView; v++ ) {
       inVertices[v].position.w = 1;
       inPixels[v].pos3d = glm::inverse(yRotation) * (inVertices[v].position + cameraPos);
     }
 
     if (inView == 3) DrawPolygon( screen, inVertices, inPixels );
+    if (inView == 4) {
+      vector<Vertex> newVertices(3);
+      vector<Pixel> newPixels(3);
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[1];
+      newVertices[2] = inVertices[2];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[1];
+      newPixels[2] = inPixels[2];
+      DrawPolygon( screen, newVertices, newPixels );
+
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[2];
+      newVertices[2] = inVertices[3];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[2];
+      newPixels[2] = inPixels[3];
+      DrawPolygon( screen, newVertices, newPixels );
+
+    }
+    if (inView == 5) {
+      vector<Vertex> newVertices(3);
+      vector<Pixel> newPixels(3);
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[1];
+      newVertices[2] = inVertices[2];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[1];
+      newPixels[2] = inPixels[2];
+      DrawPolygon( screen, newVertices, newPixels );
+
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[2];
+      newVertices[2] = inVertices[3];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[2];
+      newPixels[2] = inPixels[3];
+      DrawPolygon( screen, newVertices, newPixels );
+
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[3];
+      newVertices[2] = inVertices[4];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[3];
+      newPixels[2] = inPixels[4];
+      DrawPolygon( screen, newVertices, newPixels );
+    }
+    if (inView == 6) {
+      vector<Vertex> newVertices(3);
+      vector<Pixel> newPixels(3);
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[1];
+      newVertices[2] = inVertices[2];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[1];
+      newPixels[2] = inPixels[2];
+      DrawPolygon( screen, newVertices, newPixels );
+
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[2];
+      newVertices[2] = inVertices[3];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[2];
+      newPixels[2] = inPixels[3];
+      DrawPolygon( screen, newVertices, newPixels );
+
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[3];
+      newVertices[2] = inVertices[4];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[3];
+      newPixels[2] = inPixels[4];
+      DrawPolygon( screen, newVertices, newPixels );
+
+      newVertices[0] = inVertices[0];
+      newVertices[1] = inVertices[4];
+      newVertices[2] = inVertices[5];
+      newPixels[0] = inPixels[0];
+      newPixels[1] = inPixels[3];
+      newPixels[2] = inPixels[4];
+      DrawPolygon( screen, newVertices, newPixels );
+    }
   }
 }
 
@@ -373,6 +463,7 @@ void DrawRows( screen* screen, const vector<Pixel>& leftPixels,
 {
   int ROWS = leftPixels.size();
   for ( int i = 0; i < ROWS; i++ ) {
+    //int pixels = 2;
     int pixels = rightPixels[i].x - leftPixels[i].x + 1;
     vector<Pixel> row(pixels);
     InterpolatePixel( leftPixels[i], rightPixels[i], row );
@@ -413,33 +504,140 @@ void DrawPolygon( screen* screen, const vector<Vertex>& vertices, vector<Pixel>&
 
 int ClipPolygon( vector<Vertex>& vertices, vector<Vertex>& inVertices ) {
   int inView = 0;
-  float umax = SCREEN_WIDTH/2;
-  float vmax = SCREEN_HEIGHT/2;
+  bitset<4> lastANDcode;
 
   for (uint32_t i = 0; i < vertices.size(); i++ ){
-    float xmax = umax *  vertices[i].position.w;
-    float xmin = -xmax;
-    float ymax = vmax * vertices[i].position.w;
-    float ymin = -ymax;
-    float x = vertices[i].position.x;
-    float y = vertices[i].position.y;
-    //float z = vertices[i].position.z;
-    if (y < ymin) vertices[i].outcode[3] = 1;
-    if (y > ymax) vertices[i].outcode[2] = 1;
-    if (x > xmax) vertices[i].outcode[1] = 1;
-    if (x < xmin) vertices[i].outcode[0] = 1;
+    CalculateOutcode(vertices[i]);
   }
 
   for (uint32_t i = 0; i < vertices.size(); i++ ) {
     int j = (i+1)%vertices.size();
-    if ( (vertices[i].outcode | vertices[j].outcode) == 0 ) {
-      inVertices[i] = vertices[i];
+    bitset<4> ORcode = (vertices[i].outcode | vertices[j].outcode);
+    bitset<4> ANDcode = (vertices[i].outcode & vertices[j].outcode);
+
+    //Both vertices on screen - add 2nd vertex to inVertices.
+    if ( ORcode == 0 ) {
+      inVertices.push_back( vertices[j] );
       inView++;
     }
 
-  }
+    //1st vertex off screen - add intersection vertex (and 2nd vertex if on screen)
+    if ( ANDcode == 0 && vertices[i].outcode != 0 ) {
+      Vertex clippedVertex = vertices[i];
+      if ( vertices[i].outcode[0] == 1 ) {
+        //Clip Left
+        clippedVertex = ClipPolygonLeft(vertices[j], clippedVertex);
+      }
+      else if ( vertices[i].outcode[1] == 1 ) {
+        //Clip Right
+        clippedVertex = ClipPolygonRight(vertices[j], clippedVertex);
+      }
+      if ( vertices[i].outcode[2] == 1 ) {
+        //Clip Bottom
+        clippedVertex = ClipPolygonBottom(vertices[j], clippedVertex);
+      }
+      else if ( vertices[i].outcode[3] == 1 ) {
+        //Clip Top
+        clippedVertex = ClipPolygonTop(vertices[j], clippedVertex);
+      }
+      inVertices.push_back(clippedVertex);
+      inView++;
+      if (vertices[j].outcode == 0)  {
+        inVertices.push_back( vertices[j] );
+        inView++;
+      }
+    }
 
+    //2nd vertex off screen - add intersection vertex
+    if ( ANDcode == 0 && vertices[j].outcode != 0 ) {
+      Vertex clippedVertex = vertices[j];
+      if ( vertices[j].outcode[0] == 1 ) {
+        //Clip Left
+        clippedVertex = ClipPolygonLeft(vertices[i], clippedVertex);
+      }
+      else if ( vertices[j].outcode[1] == 1 ) {
+        //Clip Right
+        clippedVertex = ClipPolygonRight(vertices[i], clippedVertex);
+      }
+      if ( vertices[j].outcode[2] == 1 ) {
+        //Clip Bottom
+        clippedVertex = ClipPolygonBottom(vertices[i], clippedVertex);
+      }
+      else if ( vertices[j].outcode[3] == 1 ) {
+        //Clip Top
+        clippedVertex = ClipPolygonTop(vertices[i], clippedVertex);
+      }
+      inVertices.push_back(clippedVertex);
+      inView++;
+    }
+  }
   return inView;
+}
+
+Vertex ClipPolygonTop(Vertex i, Vertex j) {
+  float iy = i.position.y;
+  float iw = i.position.w;
+  float jy = j.position.y;
+  float jw = j.position.w;
+  float t = (iw + 2*iy/SCREEN_WIDTH)/((iw + 2*iy/SCREEN_WIDTH)-(jw + 2*jy/SCREEN_WIDTH));
+
+  Vertex intersect;
+  intersect.position = i.position + t * (j.position - i.position);
+
+  return intersect;
+}
+
+Vertex ClipPolygonLeft(Vertex i, Vertex j) {
+  float ix = i.position.x;
+  float iw = i.position.w;
+  float jx = j.position.x;
+  float jw = j.position.w;
+  float t = (iw + 2*ix/SCREEN_WIDTH)/((iw + 2*ix/SCREEN_WIDTH)-(jw + 2*jx/SCREEN_WIDTH));
+
+  Vertex intersect;
+  intersect.position = i.position + t * (j.position - i.position);
+
+  return intersect;
+}
+
+Vertex ClipPolygonBottom(Vertex i, Vertex j) {
+    float iy = i.position.y;
+    float iw = i.position.w;
+    float jy = j.position.y;
+    float jw = j.position.w;
+    float t = (iw - 2*iy/SCREEN_WIDTH)/((iw - 2*iy/SCREEN_WIDTH)-(jw - 2*jy/SCREEN_WIDTH));
+
+    Vertex intersect;
+    intersect.position = i.position + t * (j.position - i.position);
+
+    return intersect;
+}
+
+Vertex ClipPolygonRight(Vertex i, Vertex j) {
+  float ix = i.position.x;
+  float iw = i.position.w;
+  float jx = j.position.x;
+  float jw = j.position.w;
+  float t = (iw - 2*ix/SCREEN_WIDTH)/((iw - 2*ix/SCREEN_WIDTH)-(jw - 2*jx/SCREEN_WIDTH));
+
+  Vertex intersect;
+  intersect.position = i.position + t * (j.position - i.position);
+
+  return intersect;
+}
+
+void CalculateOutcode( Vertex& v ) {
+  float xmax = umax *  v.position.w;
+  float xmin = -xmax;
+  float ymax = vmax * v.position.w;
+  float ymin = -ymax;
+  float x = v.position.x;
+  float y = v.position.y;
+  //float z = vertices[i].position.z;
+  if (y < ymin) v.outcode[3] = 1;
+  if (y > ymax) v.outcode[2] = 1;
+  if (x > xmax) v.outcode[1] = 1;
+  if (x < xmin) v.outcode[0] = 1;
 }
 
 
