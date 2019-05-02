@@ -5,7 +5,7 @@
 #include "TestModelH.h"
 #include <stdint.h>
 #include <math.h>
-#include <omp.h>
+// #include <omp.h>
 
 using namespace std;
 using glm::vec3;
@@ -61,8 +61,8 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel(triangles);
 
-  int NUM_THREADS = omp_get_max_threads();
-  omp_set_num_threads(NUM_THREADS);
+  // int NUM_THREADS = omp_get_max_threads();
+  // omp_set_num_threads(NUM_THREADS);
 
   while( Update() )
     {
@@ -85,9 +85,9 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
   // Clear buffer
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  #pragma omp parallel
-  {
-    #pragma omp for nowait collapse(2) private(intersection)
+  // #pragma omp parallel
+  // {
+  //   #pragma omp for nowait collapse(2) private(intersection)
     for (int x = 0; x < SCREEN_WIDTH; x++) {
       for (int y = 0; y < SCREEN_HEIGHT; y++) {
         vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
@@ -106,7 +106,7 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
       }
     }
   }
-}
+//}
 
 
 // Updates parameters
@@ -291,24 +291,29 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
   int index = i.triangleIndex;
   vec4 position = i.position;
   vec4 normal = triangles[index].normal;
+  vec3 D = vec3(0,0,0);
 
-  // Vector from intersection point to light source
-  vec4 lightDir = vec4(lightPos.x-position.x, lightPos.y-position.y, lightPos.z-position.z, position.w);
-  vec4 unitLightDir = glm::normalize(lightDir);
+  for (float x = -0.1; x <= 0.1; x+=0.05) {
+    for (float y = -0.1; y <= 0.1; y+=0.05) {
+      // Vector from intersection point to light source
+      vec4 lightDir = vec4((lightPos.x +x ) - position.x, lightPos.y - position.y, (lightPos.z +y) - position.z, position.w);
+      vec4 unitLightDir = glm::normalize(lightDir);
 
-  float projection = glm::dot(unitLightDir, normal);
-  //Distance from intersection point to light source
-  float radius = glm::length(vec3(lightDir.x, lightDir.y, lightDir.z));
+      float projection = glm::dot(unitLightDir, normal);
+      //Distance from intersection point to light source
+      float radius = glm::length(vec3(lightDir.x, lightDir.y, lightDir.z));
 
-  vec3 D = lightColor * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
+      D += lightColor * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
 
-  Intersection shadowIntersection;
-  if (ClosestIntersection(lightPos, -unitLightDir, triangles, shadowIntersection)) {
-    if (shadowIntersection.distance < radius) {
-      D = vec3(0, 0, 0);
+      Intersection shadowIntersection;
+      if (ClosestIntersection(lightPos, -unitLightDir, triangles, shadowIntersection)) {
+        if (shadowIntersection.distance < radius) {
+          D = vec3(0, 0, 0);
+        }
+      }
     }
   }
-  return D;
+  return D/80.0f;
 }
 
 
