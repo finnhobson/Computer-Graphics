@@ -5,7 +5,7 @@
 #include "TestModelH.h"
 #include <stdint.h>
 #include <math.h>
-// #include <omp.h>
+#include <omp.h>
 
 using namespace std;
 using glm::vec3;
@@ -15,8 +15,8 @@ using glm::mat4;
 
 SDL_Event event;
 
-#define SCREEN_WIDTH 300
-#define SCREEN_HEIGHT 300
+#define SCREEN_WIDTH 500
+#define SCREEN_HEIGHT 500
 #define FULLSCREEN_MODE false
 #define _USE_MATH_DEFINES
 
@@ -34,7 +34,7 @@ vec4 cameraPos( 0.0, 0.0, -3.0, 1.0 );
 mat4 yRotation = mat4(1.0f);
 float yAngle;
 
-vec4 lightPos( 0, -0.5, -0.7, 1.0 );
+vec4 lightPos( 0, -0.5, -0.8, 1.0 );
 float intensity = 12.f;
 float red = 1.0f;
 float green = 1.0f;
@@ -61,8 +61,8 @@ int main( int argc, char* argv[] )
   vector<Triangle> triangles;
   LoadTestModel(triangles);
 
-  // int NUM_THREADS = omp_get_max_threads();
-  // omp_set_num_threads(NUM_THREADS);
+  int NUM_THREADS = omp_get_max_threads();
+  omp_set_num_threads(NUM_THREADS);
 
   while( Update() )
     {
@@ -85,14 +85,14 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
   // Clear buffer
   memset(screen->buffer, 0, screen->height*screen->width*sizeof(uint32_t));
 
-  // #pragma omp parallel
-  // {
-  //   #pragma omp for nowait collapse(2) private(intersection)
+  #pragma omp parallel
+  {
+    #pragma omp for nowait collapse(2) private(intersection)
     for (int x = 0; x < SCREEN_WIDTH; x++) {
       for (int y = 0; y < SCREEN_HEIGHT; y++) {
         vec3 color(0.0f);
-        for (float i = -0.008; i <= 0.008; i+=0.004) {
-          for (float j = -0.008; j <= 0.008; j+=0.004) {
+        for (float i = -0.004; i <= 0.004; i+=0.002) {
+          for (float j = -0.004; j <= 0.004; j+=0.002) {
             vec4 dir(x - SCREEN_WIDTH/2, y - SCREEN_HEIGHT/2, focalLength, 1.0);
             if (ClosestIntersection(cameraPos + vec4(i,j,0,0), dir, triangles, intersection))
             {
@@ -111,7 +111,7 @@ void Draw(screen* screen, const vector<Triangle>& triangles)
       }
     }
   }
-//}
+}
 
 
 // Updates parameters
@@ -243,9 +243,9 @@ bool ClosestIntersection( vec4 start, vec4 dir, const vector<Triangle>& triangle
     vec4 v2 = triangles[i].v2;
 
     // Rotate points around the y-axis
-    v0 = yRotation * v0;
-    v1 = yRotation * v1;
-    v2 = yRotation * v2;
+    //v0 = yRotation * v0;
+    //v1 = yRotation * v1;
+    //v2 = yRotation * v2;
 
     // Calculate intersection with the plane that the triangle lies on
     vec3 e1 = vec3(v1.x-v0.x, v1.y-v0.y, v1.z-v0.z);
@@ -308,17 +308,15 @@ vec3 DirectLight( const Intersection& i, const vector<Triangle>& triangles )
       //Distance from intersection point to light source
       float radius = glm::length(vec3(lightDir.x, lightDir.y, lightDir.z));
 
-      D += lightColor * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
-
       Intersection shadowIntersection;
       if (ClosestIntersection(lightPos, -unitLightDir, triangles, shadowIntersection)) {
-        if (shadowIntersection.distance < radius) {
-          D = vec3(0, 0, 0);
+        if (shadowIntersection.distance >= radius) {
+            D += lightColor * max(projection, 0.0f) / (4.0f * float(M_PI) * radius * radius);
         }
       }
     }
   }
-  return D/50.0f;
+  return D * 0.025f;
 }
 
 
