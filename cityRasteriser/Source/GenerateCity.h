@@ -13,9 +13,18 @@ public:
 	glm::vec4 v2;
 	glm::vec4 normal;
 	glm::vec3 color;
+	glm::ivec2 t0;
+	glm::ivec2 t1;
+	glm::ivec2 t2;
 
 	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color )
 		: v0(v0), v1(v1), v2(v2), color(color)
+	{
+		ComputeNormal();
+	}
+
+	Triangle( glm::vec4 v0, glm::vec4 v1, glm::vec4 v2, glm::vec3 color, glm::ivec2 t0, glm::ivec2 t1, glm::ivec2 t2 )
+		: v0(v0), v1(v1), v2(v2), color(color), t0(t0), t1(t1), t2(t2)
 	{
 		ComputeNormal();
 	}
@@ -39,9 +48,9 @@ struct Car
   glm::vec4 movement;
 };
 
-void GenerateModel( std::vector<Triangle>& triangles );
-void GenerateCars( std::vector<Car>& cars );
-void GenerateLights( std::vector<glm::vec4>& lights );
+void GenerateModel( std::vector<Triangle>& triangles, int x, int y );
+void GenerateCars( std::vector<Car>& cars, int cityX, int cityZ );
+void GenerateLights( std::vector<glm::vec4>& lights, int cityX, int cityZ );
 
 
 #endif

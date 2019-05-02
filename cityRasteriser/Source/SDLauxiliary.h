@@ -6,6 +6,8 @@
 #include <glm/glm.hpp>
 #include <stdint.h>
 
+using glm::vec3;
+
 typedef struct{
   SDL_Window *window;
   SDL_Renderer *renderer;
@@ -20,6 +22,7 @@ void PutPixelSDL( screen *s, int x, int y, glm::vec3 color );
 void SDL_Renderframe(screen *s);
 void KillSDL(screen* s);
 void SDL_SaveImage(screen *s, const char* filename);
+vec3 GetPixelSDL(SDL_Surface *surface, int x, int y);
 
 void SDL_SaveImage(screen *s, const char* filename)
 {
@@ -160,5 +163,41 @@ void PutPixelSDL(screen* s, int x, int y, glm::vec3 colour)
   s->buffer[y*s->width+x] = (128<<24) + (r<<16) + (g<<8) + b;
 }
 
+vec3 GetPixelSDL(SDL_Surface *surface, int x, int y)
+{
+  int bytes_per_pixel = surface->format->BytesPerPixel;
+  /* Here p is the address to the pixel we want to retrieve */
+  Uint8 *p = (Uint8 *)surface->pixels + y * surface->pitch + x * bytes_per_pixel;
+
+  Uint32 sdl_pixel_value;
+  vec3 pixel_value;
+  switch(bytes_per_pixel) {
+    case 1:
+      sdl_pixel_value = *p;
+      break;
+
+    case 2:
+      sdl_pixel_value = *(Uint16 *)p;
+      break;
+
+    case 3:
+      if(SDL_BYTEORDER == SDL_BIG_ENDIAN)
+        sdl_pixel_value = p[0] << 16 | p[1] << 8 | p[2];
+      else
+        sdl_pixel_value = p[0] | p[1] << 8 | p[2] << 16;
+
+    case 4:
+      sdl_pixel_value = *(Uint32 *)p;
+      break;
+    default:
+      sdl_pixel_value = 0;       /* shouldn't happen, but avoids warnings  - Nice one SDL guys!*/
+  }
+  uint8_t r, g, b;
+  SDL_GetRGB(sdl_pixel_value, surface->format, &r, &g, &b);
+  pixel_value.r = r/255.f;
+  pixel_value.g = g/255.f;
+  pixel_value.b = b/255.f;
+  return pixel_value;
+}
 
 #endif

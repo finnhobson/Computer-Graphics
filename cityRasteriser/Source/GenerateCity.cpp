@@ -5,14 +5,16 @@
 #include <random>
 #include "GenerateCity.h"
 
+using glm::ivec2;
 using glm::vec3;
 using glm::vec4;
 
 // Procedurally generates a city model.
 
 float L = 5000;
+size_t numTriangles = 0;
 
-void GenerateModel( std::vector<Triangle>& triangles )
+void GenerateModel( std::vector<Triangle>& triangles, int cityX, int cityZ )
 {
 	// Defines colors:
 	vec3 red(    0.75f, 0.15f, 0.15f );
@@ -22,44 +24,26 @@ void GenerateModel( std::vector<Triangle>& triangles )
 	vec3 blue(   0.15f, 0.15f, 0.75f );
 	vec3 purple( 0.75f, 0.15f, 0.75f );
 	vec3 white(  0.75f, 0.75f, 0.75f );
-  vec3 building1(  0.5f, 0.5f, 0.57f );
-	vec3 building2(  0.5f, 0.5f, 0.56f );
-	vec3 building3(  0.5f, 0.5f, 0.55f );
-	vec3 road(  0.2f, 0.2f, 0.2f );
+  vec3 building1(  0.35f, 0.35f, 0.42f );
+	vec3 building2(  0.35f, 0.35f, 0.41f );
+	vec3 building3(  0.35f, 0.35f, 0.4f );
 
-	triangles.clear();
-	triangles.reserve( 5*2*500 + 2 );
-
-	// ---------------------------------------------------------------------------
-	// Room
-
-	float outer = 7500;
-
-	vec4 A(outer,0,0,1);
-	vec4 B(0,0,0,1);
-	vec4 C(outer,0,outer,1);
-	vec4 D(0,0,outer,1);
-
-	vec4 E, F, G, H, I;
-
-	// Floor:
-	//triangles.push_back( Triangle( C, B, A, road ) );
-	//triangles.push_back( Triangle( C, D, B, road ) );
+	vec4 A, B, C, D, E, F, G, H, I;
+	ivec2 textA, textB, textC, textD, textE, textF, textG, textH;
 
 	// ---------------------------------------------------------------------------
 	// Buildings
 
-	/*std::default_random_engine generator;
-  std::normal_distribution<float> distribution(L/2,L/2);*/
-
 	int x = 0;
 	int z = 0;
 	int width = 150;
+	int randU, randV;
 	vec3 colour;
+	numTriangles = triangles.size();
 
-	while (x < L)
+	while (x < L+width)
 	{
-		while (z < L)
+		while (z < L+width)
 		{
 			if (x % 750 != 0 && z % 750 != 0) {
 				srand(time(NULL) * x + z);
@@ -74,15 +58,15 @@ void GenerateModel( std::vector<Triangle>& triangles )
 
 				int widthGap = (width - randWidth)/2;
 
-				A = vec4(x+widthGap,0,z+width-widthGap,1);
-				B = vec4(x+widthGap,0,z+widthGap,1);
-				C = vec4(x+width-widthGap,0,z+width-widthGap,1);
-				D = vec4(x+width-widthGap,0,z+widthGap,1);
+				A = vec4(x+widthGap+cityX*(L+width*1.7f),0,z+width-widthGap+cityZ*(L+width*1.7f),1);
+				B = vec4(x+widthGap+cityX*(L+width*1.7f),0,z+widthGap+cityZ*(L+width*1.7f),1);
+				C = vec4(x+width-widthGap+cityX*(L+width*1.7f),0,z+width-widthGap+cityZ*(L+width*1.7f),1);
+				D = vec4(x+width-widthGap+cityX*(L+width*1.7f),0,z+widthGap+cityZ*(L+width*1.7f),1);
 
-				E = vec4(x+widthGap,randHeight,z+width-widthGap,1);
-				F = vec4(x+widthGap,randHeight,z+widthGap,1);
-				G = vec4(x+width-widthGap,randHeight,z+width-widthGap,1);
-				H = vec4(x+width-widthGap,randHeight,z+widthGap,1);
+				E = vec4(x+widthGap+cityX*(L+width*1.7f),randHeight,z+width-widthGap+cityZ*(L+width*1.7f),1);
+				F = vec4(x+widthGap+cityX*(L+width*1.7f),randHeight,z+widthGap+cityZ*(L+width*1.7f),1);
+				G = vec4(x+width-widthGap+cityX*(L+width*1.7f),randHeight,z+width-widthGap+cityZ*(L+width*1.7f),1);
+				H = vec4(x+width-widthGap+cityX*(L+width*1.7f),randHeight,z+widthGap+cityZ*(L+width*1.7f),1);
 
 				int randColour = rand() % 3;
 				if (randColour == 0) colour = building1;
@@ -91,20 +75,51 @@ void GenerateModel( std::vector<Triangle>& triangles )
 
 
 				// Front
-				triangles.push_back( Triangle(E,B,A,colour) );
-				triangles.push_back( Triangle(E,F,B,colour) );
+				randU = (rand() % 8) * 8;
+				randV = (rand() % 8) * 8;
+				randU = 0;
+				randV = 0;
+				textE = ivec2(randU, randV);
+				textB = ivec2(randU+randWidth/2,randV+randHeight/2);
+				textA = ivec2(randU,randV+randHeight/2);
+				textF = ivec2(randU+randWidth/2, randV);
+
+				triangles.push_back( Triangle(E,B,A,colour,textE,textB,textA) );
+				triangles.push_back( Triangle(E,F,B,colour,textE,textF,textB) );
 
 				// Front
-				triangles.push_back( Triangle(F,D,B,colour) );
-				triangles.push_back( Triangle(F,H,D,colour) );
+				randU = (rand() % 8) * 8;
+				randV = (rand() % 8) * 8;
+				textF = ivec2(randU, randV);
+				textD = ivec2(randU+randWidth/2,randV+randHeight/2);
+				textB = ivec2(randU,randV+randHeight/2);
+				textH = ivec2(randU+randWidth/2, randV);
+
+				triangles.push_back( Triangle(F,D,B,colour,textF,textD,textB) );
+				triangles.push_back( Triangle(F,H,D,colour,textF,textH,textD) );
 
 				// BACK
-				triangles.push_back( Triangle(H,C,D,colour) );
-				triangles.push_back( Triangle(H,G,C,colour) );
+				randU = (rand() % 8) * 8;
+				randV = (rand() % 8) * 8;
+				textH = ivec2(randU, randV);
+				textC = ivec2(randU+randWidth/2,randV+randHeight/2);
+				textD = ivec2(randU,randV+randHeight/2);
+				textG = ivec2(randU+randWidth/2, randV);
+
+				triangles.push_back( Triangle(H,C,D,colour,textH,textC,textD) );
+				triangles.push_back( Triangle(H,G,C,colour,textH,textG,textC) );
 
 				// LEFT
-				triangles.push_back( Triangle(G,E,C,colour) );
-				triangles.push_back( Triangle(E,A,C,colour) );
+				randU = (rand() % 8) * 8;
+				randV = (rand() % 8) * 8;
+
+				textE = ivec2(randU, randV);
+				textC = ivec2(randU+randWidth/2,randV+randHeight/2);
+				textA = ivec2(randU,randV+randHeight/2);
+				textG = ivec2(randU+randWidth/2, randV);
+
+				triangles.push_back( Triangle(G,E,C,colour,textG,textE,textC) );
+				triangles.push_back( Triangle(E,A,C,colour,textE,textA,textC) );
 
 				// TOP
 				triangles.push_back( Triangle(G,F,E,colour) );
@@ -112,7 +127,7 @@ void GenerateModel( std::vector<Triangle>& triangles )
 
 				int pointedTop = rand() % 4;
 				if (randHeight > 600 && pointedTop == 0) {
-					I = vec4(x+width/2, randHeight + 50, z+width/2, 1);
+					I = vec4(x+width/2+cityX*(L+width*1.7f), randHeight + 50, z+width/2+cityZ*(L+width*1.7f), 1);
 
 					triangles.push_back( Triangle(I,E,F,colour) );
 					triangles.push_back( Triangle(I,E,G,colour) );
@@ -130,7 +145,9 @@ void GenerateModel( std::vector<Triangle>& triangles )
 	// ----------------------------------------------
 	// Scale to the volume [-1,1]^3
 
-	for( size_t i=0; i<triangles.size(); ++i )
+
+
+	for( size_t i=numTriangles; i<triangles.size(); ++i )
 	{
 		triangles[i].v0 *= 2/L;
 		triangles[i].v1 *= 2/L;
@@ -163,12 +180,12 @@ void GenerateModel( std::vector<Triangle>& triangles )
 	}*/
 }
 
-void GenerateCars( std::vector<Car>& cars ) {
+void GenerateCars( std::vector<Car>& cars, int cityX, int cityZ ) {
 	for ( unsigned int i = 0; i < cars.size(); i++ ) {
     if (i < cars.size()*0.5f) {
-			int randX = (rand() % 7) * 750;
-			int randZ = rand() % 5000;
-			cars[i].position = vec4(randX, 5, randZ, 0);
+			int randX = ((rand() % 28) -14) * 750;
+			int randZ = rand() % 20000;
+			cars[i].position = vec4(randX+cityX*(L+250), 5, randZ+cityZ*(L+250), 0);
 			if (i < cars.size() * 0.25f) {
 				cars[i].colour = vec3(3,3,3);
 				cars[i].position += vec4(50, 0, 0, 0);
@@ -181,9 +198,9 @@ void GenerateCars( std::vector<Car>& cars ) {
 			}
 		}
 		else {
-			int randZ = (rand() % 7) * 750;
-			int randX = rand() % 5000;
-			cars[i].position = vec4(randX, 5, randZ, 0);
+			int randZ = (rand() % 21) * 750;
+			int randX = rand() % 10000;
+			cars[i].position = vec4(randX+cityX*(L+250), 5, randZ+cityZ*(L+250), 0);
 			if (i < cars.size() * 0.75f) {
 				cars[i].colour = vec3(3,3,3);
 				cars[i].position += vec4(0, 0, 50, 0);
@@ -207,17 +224,19 @@ void GenerateCars( std::vector<Car>& cars ) {
 	}
 }
 
-void GenerateLights( std::vector<glm::vec4>& lights ) {
+void GenerateLights( std::vector<glm::vec4>& lights, int cityX, int cityZ ) {
+	int numLights = lights.size();
+
 	for (int i = 0; i < 7; i++) {
-		for (int j = 0; j < 50; j++ ) {
-				lights.push_back( vec4(i*750 + 20, 5, L/40 * j - L/8, 1) );
-				lights.push_back( vec4(i*750 + 130, 5, L/40 * j - L/8, 1) );
-				lights.push_back( vec4(L/40 * j - L/8, 5, i*750 + 20, 1) );
-				lights.push_back( vec4(L/40 * j - L/8, 5, i*750 + 130, 1) );
+		for (int j = 0; j < 35; j++ ) {
+				lights.push_back( vec4(i*750 + 20 + cityX*(L+250), 5, L/33 * j + cityZ*(L+250), 1) );
+				lights.push_back( vec4(i*750 + 130 + cityX*(L+250), 5, L/33 * j + cityZ*(L+250), 1) );
+				lights.push_back( vec4(L/33 * j + cityX*(L+250), 5, i*750 + 20 + cityZ*(L+250), 1) );
+				lights.push_back( vec4(L/33 * j + cityX*(L+250), 5, i*750 + 130 + cityZ*(L+250), 1) );
 		}
 	}
 
-	for( size_t i=0; i<lights.size(); ++i )
+	for( size_t i=numLights; i<lights.size(); ++i )
 	{
 		lights[i] *= 2/L;
 		lights[i] -= vec4(1,1,1,1);
